@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core"
+            xmlns:val="http://www.fixprotocol.org/ATDL-1-1/Validation"
+            xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout"
+            xmlns:flow="http://www.fixprotocol.org/ATDL-1-1/Flow"
+            strategyIdentifierTag="847"
+            xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+
+  <!-- Global reusable edit: Side must be supplied -->
+  <val:Edit id="GlobalSideExists" field="Side" operator="EX"/>
+
+  <Strategy name="TwapAlgo" wireValue="TwapAlgo" version="1"
+            fixMsgType="D" providerID="ACME" uiRep="TWAP Algo">
+
+    <Regions>
+      <Region name="TheAmericas" inclusion="Include">
+        <Country CountryCode="US" inclusion="Include"/>
+        <Country CountryCode="CA" inclusion="Include"/>
+      </Region>
+    </Regions>
+
+    <Markets>
+      <Market MICCode="XNAS" inclusion="Include"/>
+      <Market MICCode="XNYS" inclusion="Include"/>
+    </Markets>
+
+    <!-- Parameters -->
+    <Parameter name="Side" xsi:type="core:String_t" fixTag="54" use="required">
+      <EnumPair enumID="Buy"  wireValue="1"/>
+      <EnumPair enumID="Sell" wireValue="2"/>
+    </Parameter>
+
+    <Parameter name="Qty" xsi:type="core:Qty_t" fixTag="38" use="required"
+               minValue="1" maxValue="1000000"/>
+
+    <Parameter name="StartTime" xsi:type="core:UTCTimeStamp_t" fixTag="5001"
+               use="optional"/>
+
+    <Parameter name="MaxPct" xsi:type="core:Percentage_t" fixTag="5002"
+               use="optional" minValue="0.01" maxValue="1.0"/>
+
+    <Parameter name="Notes" xsi:type="core:String_t" fixTag="5003"
+               use="optional" minLength="0" maxLength="200"/>
+
+    <!-- Strategy-level edits (must precede StrategyLayout per XSD sequence) -->
+    <val:Edit id="QtyPositive" field="Qty" operator="GT" value="0"/>
+    <val:Edit id="BothConditions" logicOperator="AND">
+      <val:EditRef id="GlobalSideExists"/>
+      <val:EditRef id="QtyPositive"/>
+    </val:Edit>
+
+    <!-- UI layout (must precede StrategyEdit per XSD sequence) -->
+    <lay:StrategyLayout>
+      <lay:StrategyPanel orientation="VERTICAL" title="Order Parameters">
+
+        <!-- DropDownList: StateRule before ListItems (XSD sequence order) -->
+        <lay:Control xsi:type="lay:DropDownList_t" ID="ctrlSide"
+                     parameterRef="Side" label="Side" initValue="Buy">
+          <flow:StateRule enabled="true">
+            <val:EditRef id="GlobalSideExists"/>
+          </flow:StateRule>
+          <lay:ListItem enumID="Buy"  uiRep="Buy"/>
+          <lay:ListItem enumID="Sell" uiRep="Sell"/>
+        </lay:Control>
+
+        <lay:Control xsi:type="lay:SingleSpinner_t" ID="ctrlQty"
+                     parameterRef="Qty" label="Quantity"/>
+
+        <lay:Control xsi:type="lay:Clock_t" ID="ctrlStartTime"
+                     parameterRef="StartTime" label="Start Time"/>
+
+        <lay:Control xsi:type="lay:SingleSpinner_t" ID="ctrlMaxPct"
+                     parameterRef="MaxPct" label="Max Pct"/>
+
+        <lay:Control xsi:type="lay:TextField_t" ID="ctrlNotes"
+                     parameterRef="Notes" label="Notes"/>
+
+      </lay:StrategyPanel>
+    </lay:StrategyLayout>
+
+    <!-- StrategyEdit must come after StrategyLayout per XSD sequence -->
+    <val:StrategyEdit errorMessage="Qty must be positive">
+      <val:EditRef id="QtyPositive"/>
+    </val:StrategyEdit>
+
+    <val:StrategyEdit errorMessage="Side must be supplied">
+      <val:EditRef id="GlobalSideExists"/>
+    </val:StrategyEdit>
+
+  </Strategy>
+
+</Strategies>
