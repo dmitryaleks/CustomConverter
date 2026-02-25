@@ -1,0 +1,23 @@
+{
+  "MyAlgo": {
+    "PARAMETERS": [
+      {
+        "MyParam1": {
+          "NAME": "myParam1",
+          "DESCRIPTION": "My first parameter",
+          "TYPE": "String_t",
+          "FIXTAGNUMBER": 5001,
+          "SUPPORTED_VALUES": ["A", "B", "C"]
+        }
+      },
+      {
+        "MyParam2": {
+          "NAME": "myParam2",
+          "DESCRIPTION": "An integer param with no enum values",
+          "TYPE": "Int_t",
+          "FIXTAGNUMBER": 5002
+        }
+      }
+    ]
+  }
+}
