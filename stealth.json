@@ -1,0 +1,89 @@
+{
+  "STEALTH": {
+    "PARAMETERS": [
+      {
+        "START_TIME": {
+          "NAME": "StartTime",
+          "DESCRIPTION": "Scheduled start time for algo execution window (UTC)",
+          "TYPE": "UTCTimeOnly_t",
+          "FIXTAGNUMBER": 6001
+        }
+      },
+      {
+        "END_TIME": {
+          "NAME": "EndTime",
+          "DESCRIPTION": "Scheduled end time for algo execution window (UTC); must be after StartTime",
+          "TYPE": "UTCTimeOnly_t",
+          "FIXTAGNUMBER": 6002
+        }
+      },
+      {
+        "TARGET_PRICE": {
+          "NAME": "TargetPrice",
+          "DESCRIPTION": "Limit price beyond which the algo will not trade; leave blank for market-price tracking",
+          "TYPE": "Price_t",
+          "FIXTAGNUMBER": 6003
+        }
+      },
+      {
+        "DISPLAY_QUANTITY": {
+          "NAME": "DisplayQuantity",
+          "DESCRIPTION": "Maximum share quantity to display on the order book at any moment (iceberg/reserve size)",
+          "TYPE": "Qty_t",
+          "FIXTAGNUMBER": 6004
+        }
+      },
+      {
+        "MIN_FILL_SIZE": {
+          "NAME": "MinFillSize",
+          "DESCRIPTION": "Minimum acceptable fill quantity per execution; rejects partial fills smaller than this",
+          "TYPE": "Qty_t",
+          "FIXTAGNUMBER": 6005
+        }
+      },
+      {
+        "MAX_PARTICIPATION_RATE": {
+          "NAME": "MaxParticipationRate",
+          "DESCRIPTION": "Maximum fraction of market volume the algo may consume (e.g. 0.10 = 10%)",
+          "TYPE": "Percentage_t",
+          "FIXTAGNUMBER": 6006
+        }
+      },
+      {
+        "SENTIMENT": {
+          "NAME": "Sentiment",
+          "DESCRIPTION": "Market sentiment bias used to skew intraday participation-rate curve",
+          "TYPE": "String_t",
+          "FIXTAGNUMBER": 6007,
+          "SUPPORTED_VALUES": ["Bullish", "Bearish", "Neutral"]
+        }
+      },
+      {
+        "VENUE_FOCUS": {
+          "NAME": "VenueFocus",
+          "DESCRIPTION": "Preferred liquidity pool selection strategy across lit and dark venues",
+          "TYPE": "String_t",
+          "FIXTAGNUMBER": 6008,
+          "SUPPORTED_VALUES": ["DarkOnly", "LitOnly", "Mixed", "SmartRoute"]
+        }
+      },
+      {
+        "ALLOW_ODD_LOTS": {
+          "NAME": "AllowOddLots",
+          "DESCRIPTION": "When enabled, the algo may submit and accept odd-lot fills to improve completion rate",
+          "TYPE": "Boolean_t",
+          "FIXTAGNUMBER": 6009
+        }
+      },
+      {
+        "POST_TRADE_ACTION": {
+          "NAME": "PostTradeAction",
+          "DESCRIPTION": "Action taken when the execution window closes or the order is fully filled",
+          "TYPE": "String_t",
+          "FIXTAGNUMBER": 6010,
+          "SUPPORTED_VALUES": ["ReportOnly", "CancelRemainder", "MarketOnClose", "Rollover"]
+        }
+      }
+    ]
+  }
+}
