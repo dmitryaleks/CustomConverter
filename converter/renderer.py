@@ -151,10 +151,13 @@ _JS = """\
         }
         var tr = document.createElement('tr');
         var tdName = document.createElement('td');
+        var tdTag = document.createElement('td');
         var tdVal = document.createElement('td');
         tdName.textContent = ctrl.name;
+        tdTag.textContent = ctrl.dataset.fixTag || '';
         tdVal.textContent = val;
         tr.appendChild(tdName);
+        tr.appendChild(tdTag);
         tr.appendChild(tdVal);
         tbody.appendChild(tr);
       });
@@ -375,9 +378,22 @@ def _render_strategy(strategy_elem: etree._Element, strategy_index: int) -> str:
         enum_pairs = _get_enum_pairs(child)
         description = _get_description(child)
 
+        fix_tag = child.get("fixTag", "")
         esc_pname = html.escape(param_name, quote=True)
         esc_pname_text = html.escape(param_name)
         control_html = _build_control(param_name, xsi_type, enum_pairs, child)
+
+        # Inject data-fix-tag onto the root control element so JS can read it
+        if fix_tag:
+            esc_fix_tag = html.escape(fix_tag, quote=True)
+            for prefix in ("<input ", "<select ", "<textarea "):
+                if control_html.startswith(prefix):
+                    control_html = (
+                        prefix
+                        + f'data-fix-tag="{esc_fix_tag}" '
+                        + control_html[len(prefix):]
+                    )
+                    break
 
         desc_html = (
             f'        <span class="description">{html.escape(description)}</span>\n'
@@ -460,7 +476,7 @@ def render_html(root: etree._Element, title: str | None = None) -> str:
         '  <section id="summary" hidden>\n'
         "    <h2>Order Parameter Summary</h2>\n"
         "    <table>\n"
-        "      <thead><tr><th>Parameter</th><th>Value</th></tr></thead>\n"
+        "      <thead><tr><th>Parameter</th><th>FIX Tag Number</th><th>Value</th></tr></thead>\n"
         '      <tbody id="summary-body"></tbody>\n'
         "    </table>\n"
         "  </section>\n"

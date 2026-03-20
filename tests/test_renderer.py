@@ -161,6 +161,15 @@ class TestRenderHtml:
         assert content.startswith("<!DOCTYPE html>")
         assert "Algo" in content
 
+    def test_fix_tag_in_data_attribute_and_summary_header(self):
+        root = _make_root([{
+            "name": "Algo",
+            "params": [{"name": "myParam", "xsi_type": "core:String_t", "fix_tag": 5099}],
+        }])
+        out = render_html(root)
+        assert 'data-fix-tag="5099"' in out
+        assert "FIX Tag Number" in out
+
     def test_custom_title_overrides_default(self):
         root = _make_root([{"name": "MyAlgo", "params": []}])
         out = render_html(root, title="Custom Title")

@@ -106,7 +106,7 @@ button[type=reset]:hover { background: #ddd; }
         <legend>MyAlgo</legend>
       <div class="field-group">
         <label for="myParam1">myParam1</label>
-        <div class="control-wrap"><select id="myParam1" name="myParam1">
+        <div class="control-wrap"><select data-fix-tag="5001" id="myParam1" name="myParam1">
             <option value="">-- select --</option>
             <option value="A" data-enum-id="A">A</option>
             <option value="B" data-enum-id="B">B</option>
@@ -117,7 +117,7 @@ button[type=reset]:hover { background: #ddd; }
       </div>
       <div class="field-group">
         <label for="myParam2">myParam2</label>
-        <div class="control-wrap"><input type="number" step="1" id="myParam2" name="myParam2"></div>
+        <div class="control-wrap"><input data-fix-tag="5002" type="number" step="1" id="myParam2" name="myParam2"></div>
         <span class="description">An integer param with no enum values</span>
         <span class="field-error" id="myParam2-error" aria-live="polite"></span>
       </div>
@@ -131,7 +131,7 @@ button[type=reset]:hover { background: #ddd; }
   <section id="summary" hidden>
     <h2>Order Parameter Summary</h2>
     <table>
-      <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+      <thead><tr><th>Parameter</th><th>FIX Tag Number</th><th>Value</th></tr></thead>
       <tbody id="summary-body"></tbody>
     </table>
   </section>
@@ -175,10 +175,13 @@ button[type=reset]:hover { background: #ddd; }
         }
         var tr = document.createElement('tr');
         var tdName = document.createElement('td');
+        var tdTag = document.createElement('td');
         var tdVal = document.createElement('td');
         tdName.textContent = ctrl.name;
+        tdTag.textContent = ctrl.dataset.fixTag || '';
         tdVal.textContent = val;
         tr.appendChild(tdName);
+        tr.appendChild(tdTag);
         tr.appendChild(tdVal);
         tbody.appendChild(tr);
       });

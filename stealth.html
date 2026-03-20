@@ -106,43 +106,43 @@ button[type=reset]:hover { background: #ddd; }
         <legend>STEALTH</legend>
       <div class="field-group">
         <label for="StartTime">StartTime</label>
-        <div class="control-wrap"><input type="time" id="StartTime" name="StartTime"></div>
+        <div class="control-wrap"><input data-fix-tag="6001" type="time" id="StartTime" name="StartTime"></div>
         <span class="description">Scheduled start time for algo execution window (UTC)</span>
         <span class="field-error" id="StartTime-error" aria-live="polite"></span>
       </div>
       <div class="field-group">
         <label for="EndTime">EndTime</label>
-        <div class="control-wrap"><input type="time" id="EndTime" name="EndTime"></div>
+        <div class="control-wrap"><input data-fix-tag="6002" type="time" id="EndTime" name="EndTime"></div>
         <span class="description">Scheduled end time for algo execution window (UTC); must be after StartTime</span>
         <span class="field-error" id="EndTime-error" aria-live="polite"></span>
       </div>
       <div class="field-group">
         <label for="TargetPrice">TargetPrice</label>
-        <div class="control-wrap"><input type="number" step="any" id="TargetPrice" name="TargetPrice"></div>
+        <div class="control-wrap"><input data-fix-tag="6003" type="number" step="any" id="TargetPrice" name="TargetPrice"></div>
         <span class="description">Limit price beyond which the algo will not trade; leave blank for market-price tracking</span>
         <span class="field-error" id="TargetPrice-error" aria-live="polite"></span>
       </div>
       <div class="field-group">
         <label for="DisplayQuantity">DisplayQuantity</label>
-        <div class="control-wrap"><input type="number" step="any" id="DisplayQuantity" name="DisplayQuantity"></div>
+        <div class="control-wrap"><input data-fix-tag="6004" type="number" step="any" id="DisplayQuantity" name="DisplayQuantity"></div>
         <span class="description">Maximum share quantity to display on the order book at any moment (iceberg/reserve size)</span>
         <span class="field-error" id="DisplayQuantity-error" aria-live="polite"></span>
       </div>
       <div class="field-group">
         <label for="MinFillSize">MinFillSize</label>
-        <div class="control-wrap"><input type="number" step="any" id="MinFillSize" name="MinFillSize"></div>
+        <div class="control-wrap"><input data-fix-tag="6005" type="number" step="any" id="MinFillSize" name="MinFillSize"></div>
         <span class="description">Minimum acceptable fill quantity per execution; rejects partial fills smaller than this</span>
         <span class="field-error" id="MinFillSize-error" aria-live="polite"></span>
       </div>
       <div class="field-group">
         <label for="MaxParticipationRate">MaxParticipationRate</label>
-        <div class="control-wrap"><input type="number" id="MaxParticipationRate" name="MaxParticipationRate" min="0" max="100"> <span class="unit">%</span></div>
+        <div class="control-wrap"><input data-fix-tag="6006" type="number" id="MaxParticipationRate" name="MaxParticipationRate" min="0" max="100"> <span class="unit">%</span></div>
         <span class="description">Maximum fraction of market volume the algo may consume (e.g. 0.10 = 10%)</span>
         <span class="field-error" id="MaxParticipationRate-error" aria-live="polite"></span>
       </div>
       <div class="field-group">
         <label for="Sentiment">Sentiment</label>
-        <div class="control-wrap"><select id="Sentiment" name="Sentiment">
+        <div class="control-wrap"><select data-fix-tag="6007" id="Sentiment" name="Sentiment">
             <option value="">-- select --</option>
             <option value="Bullish" data-enum-id="Bullish">Bullish</option>
             <option value="Bearish" data-enum-id="Bearish">Bearish</option>
@@ -153,7 +153,7 @@ button[type=reset]:hover { background: #ddd; }
       </div>
       <div class="field-group">
         <label for="VenueFocus">VenueFocus</label>
-        <div class="control-wrap"><select id="VenueFocus" name="VenueFocus">
+        <div class="control-wrap"><select data-fix-tag="6008" id="VenueFocus" name="VenueFocus">
             <option value="">-- select --</option>
             <option value="DarkOnly" data-enum-id="DarkOnly">DarkOnly</option>
             <option value="LitOnly" data-enum-id="LitOnly">LitOnly</option>
@@ -165,13 +165,13 @@ button[type=reset]:hover { background: #ddd; }
       </div>
       <div class="field-group">
         <label for="AllowOddLots">AllowOddLots</label>
-        <div class="control-wrap"><input type="checkbox" id="AllowOddLots" name="AllowOddLots" data-true-value="Y" data-false-value="N"></div>
+        <div class="control-wrap"><input data-fix-tag="6009" type="checkbox" id="AllowOddLots" name="AllowOddLots" data-true-value="Y" data-false-value="N"></div>
         <span class="description">When enabled, the algo may submit and accept odd-lot fills to improve completion rate</span>
         <span class="field-error" id="AllowOddLots-error" aria-live="polite"></span>
       </div>
       <div class="field-group">
         <label for="PostTradeAction">PostTradeAction</label>
-        <div class="control-wrap"><select id="PostTradeAction" name="PostTradeAction">
+        <div class="control-wrap"><select data-fix-tag="6010" id="PostTradeAction" name="PostTradeAction">
             <option value="">-- select --</option>
             <option value="ReportOnly" data-enum-id="ReportOnly">ReportOnly</option>
             <option value="CancelRemainder" data-enum-id="CancelRemainder">CancelRemainder</option>
@@ -191,7 +191,7 @@ button[type=reset]:hover { background: #ddd; }
   <section id="summary" hidden>
     <h2>Order Parameter Summary</h2>
     <table>
-      <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+      <thead><tr><th>Parameter</th><th>FIX Tag Number</th><th>Value</th></tr></thead>
       <tbody id="summary-body"></tbody>
     </table>
   </section>
@@ -235,10 +235,13 @@ button[type=reset]:hover { background: #ddd; }
         }
         var tr = document.createElement('tr');
         var tdName = document.createElement('td');
+        var tdTag = document.createElement('td');
         var tdVal = document.createElement('td');
         tdName.textContent = ctrl.name;
+        tdTag.textContent = ctrl.dataset.fixTag || '';
         tdVal.textContent = val;
         tr.appendChild(tdName);
+        tr.appendChild(tdTag);
         tr.appendChild(tdVal);
         tbody.appendChild(tr);
       });
