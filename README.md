@@ -6,7 +6,7 @@ Two independent CLI tools are provided:
 
 | Tool | Purpose |
 |---|---|
-| `main.py` | Convert a JSON algo descriptor → FIXATDL 1.1 XML |
+| `main.py` | Convert a JSON algo descriptor → FIXATDL 1.1 XML, with optional HTML rendering |
 | `validate_schema.py` | Validate any ATDL XML document (structural + referential + semantic) |
 
 ---
@@ -29,11 +29,13 @@ CustomConverter/
 ├── main.py                      # Converter CLI
 ├── validate_schema.py           # Schema validator CLI
 ├── sample.json                  # Example input JSON
+├── stealth.json                 # STEALTH algo example (10 parameters)
 ├── requirements.txt
 ├── converter/
 │   ├── parser.py                # JSON → AlgoDef/ParameterDef dataclasses
 │   ├── builder.py               # dataclasses → lxml XML tree
-│   └── validator.py             # XSD validation (used by --validate flag)
+│   ├── validator.py             # XSD validation (used by --validate flag)
+│   └── renderer.py              # lxml XML tree → self-contained HTML page
 ├── schema_validator/
 │   ├── loader.py                # XML parsing and element indexing
 │   ├── phase1_xsd.py            # Phase 1: XSD structural validation
@@ -56,7 +58,8 @@ CustomConverter/
     ├── test_validator.py
     ├── test_phase1.py
     ├── test_phase2.py
-    └── test_phase3.py
+    ├── test_phase3.py
+    └── test_renderer.py
 ```
 
 ---
@@ -125,6 +128,7 @@ python main.py INPUT OUTPUT [OPTIONS]
 |---|---|
 | `INPUT` | Path to the input JSON file |
 | `OUTPUT` | Path for the output XML file (created or overwritten) |
+| `--html HTML` | Render strategies to a self-contained interactive HTML file |
 | `--validate` | Validate the output XML against the bundled XSD after writing |
 | `--provider-id ID` | Value for `Strategy@providerID` (default: `CustomProvider`) |
 | `--strategy-version VER` | Value for `Strategy@version` (default: `1`) |
@@ -159,11 +163,54 @@ python main.py sample.json output.xml --validate
 python main.py sample.json output.xml --validate --provider-id ACME --strategy-version 2
 ```
 
+**Convert and render an interactive HTML preview:**
+
+```bash
+python main.py sample.json output.xml --html output.html
+```
+
+**Full pipeline — convert, render HTML, and validate XSD in one step:**
+
+```bash
+python main.py sample.json output.xml --html output.html --validate
+```
+
 **Custom strategy identifier tag:**
 
 ```bash
 python main.py sample.json output.xml --strategy-identifier-tag 5000
 ```
+
+### HTML output
+
+The `--html` flag produces a **self-contained, offline-capable HTML page** with no external dependencies. Each strategy is rendered as an interactive form:
+
+- Parameter types are automatically mapped to appropriate HTML controls (see table below).
+- Descriptions from the JSON `DESCRIPTION` field appear as hint text below each control.
+- Required fields (parameters with `use="required"`) are highlighted with an orange left border.
+- Clicking **Validate & Preview Values** validates all required fields and renders a wire-value summary table.
+- Clicking **Reset** clears the form and hides the summary.
+
+#### Parameter type → HTML control mapping
+
+| FIXATDL type | HTML control |
+|---|---|
+| `String_t` | `<input type="text">` |
+| `Int_t`, `SeqNum_t`, `Length_t`, `NumInGroup_t`, `TagNum_t` | `<input type="number" step="1">` |
+| `Float_t`, `Qty_t`, `Price_t`, `PriceOffset_t`, `Amt_t`, `Numeric_t` | `<input type="number">` |
+| `Percentage_t` | `<input type="number" min="0" max="100">` + `%` suffix |
+| `Char_t` | `<input type="text" maxlength="1">` |
+| `Boolean_t` | `<input type="checkbox">` |
+| `Currency_t` | `<input type="text" maxlength="3" pattern="[A-Z]{3}">` |
+| `Exchange_t` | `<input type="text" maxlength="4">` |
+| `Month-Year_t` | `<input type="month">` |
+| `UTCTimeStamp_t` | `<input type="datetime-local">` |
+| `UTCTimeOnly_t`, `LocalMktTime_t` | `<input type="time">` |
+| `UTCDate_t` | `<input type="date">` |
+| `Data_t` | `<textarea>` |
+| `MultipleCharValue_t`, `MultipleStringValue_t` | `<select multiple>` |
+| Any type with `SUPPORTED_VALUES` | `<select>` (single, options from enum pairs) |
+| Any type with `constValue` | `<input readonly>` |
 
 ### Output XML
 
@@ -369,7 +416,7 @@ Enforced automatically by `atdl-core-1-1.xsd` and its imports. Common failures:
 python -m pytest tests/ -v
 ```
 
-107 tests cover the converter pipeline (parser, builder, validator) and all three validation phases.
+121 tests cover the converter pipeline (parser, builder, validator, renderer) and all three validation phases.
 
 ```
 tests/test_parser.py       14 tests — JSON parsing, error cases
@@ -378,6 +425,7 @@ tests/test_validator.py     5 tests — XSD validation pass/fail
 tests/test_phase1.py        8 tests — structural checks
 tests/test_phase2.py       25 tests — REF-01..07
 tests/test_phase3.py       25 tests — SEM-01..16
+tests/test_renderer.py     14 tests — HTML control mapping, CLI --html flag
 ```
 
 ---
@@ -396,4 +444,35 @@ python validate_schema.py output.xml --format json --warnings
 
 # 4. Convert and validate in one step
 python main.py sample.json output.xml --validate
+
+# 5. Convert, validate, and render an interactive HTML preview
+python main.py sample.json output.xml --validate --html output.html
 ```
+
+## STEALTH Algo Example
+
+`stealth.json` is a more complete descriptor demonstrating a range of parameter types:
+
+| Parameter | FIXATDL type | HTML control |
+|---|---|---|
+| `StartTime` | `UTCTimeOnly_t` | time picker |
+| `EndTime` | `UTCTimeOnly_t` | time picker |
+| `TargetPrice` | `Price_t` | number input |
+| `DisplayQuantity` | `Qty_t` | number input |
+| `MinFillSize` | `Qty_t` | number input |
+| `MaxParticipationRate` | `Percentage_t` | number input (0–100) + `%` |
+| `Sentiment` | `String_t` + enum | dropdown (`Bullish` / `Bearish` / `Neutral`) |
+| `VenueFocus` | `String_t` + enum | dropdown (`DarkOnly` / `LitOnly` / `Mixed` / `SmartRoute`) |
+| `AllowOddLots` | `Boolean_t` | checkbox |
+| `PostTradeAction` | `String_t` + enum | dropdown (`ReportOnly` / `CancelRemainder` / `MarketOnClose` / `Rollover`) |
+
+```bash
+# Convert STEALTH descriptor → XML + HTML in one step
+python main.py stealth.json stealth.xml --validate --html stealth.html
+
+# Open the interactive HTML preview
+start stealth.html    # Windows
+open stealth.html     # macOS
+```
+
+The rendered `stealth.html` is a fully self-contained page — no network requests, no frameworks. Fill in parameter values and click **Validate & Preview Values** to see the wire-value summary.
