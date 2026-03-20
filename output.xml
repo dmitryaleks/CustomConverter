@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+  <Strategy name="MyAlgo" uiRep="MyAlgo" wireValue="MyAlgo" fixMsgType="D" providerID="CustomProvider" version="1">
+    <!-- myParam1: My first parameter -->
+    <Parameter name="myParam1" xsi:type="core:String_t" fixTag="5001" mutableOnCxlRpl="true">
+      <EnumPair enumID="A" wireValue="A"/>
+      <EnumPair enumID="B" wireValue="B"/>
+      <EnumPair enumID="C" wireValue="C"/>
+    </Parameter>
+    <!-- myParam2: An integer param with no enum values -->
+    <Parameter name="myParam2" xsi:type="core:Int_t" fixTag="5002" mutableOnCxlRpl="true"/>
+  </Strategy>
+</Strategies>
