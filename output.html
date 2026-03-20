@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyAlgo — ATDL Preview</title>
+  <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, sans-serif;
+  background: #f5f5f5;
+  color: #333;
+  padding: 1.5rem;
+}
+h1 { font-size: 1.6rem; margin-bottom: 0.25rem; color: #1a1a2e; }
+.meta { color: #666; font-size: 0.875rem; margin-bottom: 1.5rem; }
+.strategy-section {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+}
+fieldset { border: none; padding: 0; }
+legend { font-size: 1.1rem; font-weight: 600; color: #1a1a2e; margin-bottom: 1rem; }
+.field-group {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0.3rem 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+label { font-weight: 500; padding-top: 0.4rem; word-break: break-word; }
+.control-wrap { display: flex; align-items: center; gap: 0.4rem; }
+input, select, textarea {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+input[readonly] { background: #f0f0f0; color: #666; cursor: not-allowed; }
+input[type=checkbox] { width: auto; flex-shrink: 0; }
+textarea { resize: vertical; min-height: 5rem; }
+.unit { color: #666; font-size: 0.85rem; white-space: nowrap; }
+.description {
+  color: #888;
+  font-size: 0.8rem;
+  grid-column: 2;
+  margin-top: -0.1rem;
+}
+.field-error {
+  color: #c0392b;
+  font-size: 0.8rem;
+  grid-column: 2;
+  min-height: 1em;
+}
+input:required, select:required, textarea:required {
+  border-left: 3px solid #e67e22;
+}
+input[aria-invalid=true],
+select[aria-invalid=true],
+textarea[aria-invalid=true] {
+  border-color: #c0392b;
+  outline: 2px solid #f5b7b1;
+}
+.actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+button {
+  padding: 0.5rem 1.2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+button[type=submit] { background: #2980b9; color: #fff; }
+button[type=submit]:hover { background: #1f6395; }
+button[type=reset] { background: #eee; color: #333; }
+button[type=reset]:hover { background: #ddd; }
+#summary {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+#summary h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #1a1a2e; }
+#summary table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+#summary th, #summary td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #eee;
+}
+#summary th { font-weight: 600; background: #f8f8f8; }
+@media (max-width: 600px) {
+  .field-group { grid-template-columns: 1fr; }
+  .description, .field-error { grid-column: 1; }
+}
+  </style>
+</head>
+<body>
+  <section class="strategy-section">
+    <h1>Strategy: MyAlgo</h1>
+    <p class="meta">Provider: CustomProvider | Version: 1 | Strategy Identifier Tag: 847</p>
+    <form id="atdl-form-0" class="atdl-form" novalidate>
+      <fieldset>
+        <legend>MyAlgo</legend>
+      <div class="field-group">
+        <label for="myParam1">myParam1</label>
+        <div class="control-wrap"><select id="myParam1" name="myParam1">
+            <option value="">-- select --</option>
+            <option value="A" data-enum-id="A">A</option>
+            <option value="B" data-enum-id="B">B</option>
+            <option value="C" data-enum-id="C">C</option>
+          </select></div>
+        <span class="description">My first parameter</span>
+        <span class="field-error" id="myParam1-error" aria-live="polite"></span>
+      </div>
+      <div class="field-group">
+        <label for="myParam2">myParam2</label>
+        <div class="control-wrap"><input type="number" step="1" id="myParam2" name="myParam2"></div>
+        <span class="description">An integer param with no enum values</span>
+        <span class="field-error" id="myParam2-error" aria-live="polite"></span>
+      </div>
+      </fieldset>
+      <div class="actions">
+        <button type="submit">Validate &amp; Preview Values</button>
+        <button type="reset">Reset</button>
+      </div>
+    </form>
+  </section>
+  <section id="summary" hidden>
+    <h2>Order Parameter Summary</h2>
+    <table>
+      <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+      <tbody id="summary-body"></tbody>
+    </table>
+  </section>
+  <script>
+(function () {
+  var forms = document.querySelectorAll('form.atdl-form');
+  forms.forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var controls = form.querySelectorAll(
+        'input:not([readonly]), select, textarea'
+      );
+      var valid = true;
+      controls.forEach(function (ctrl) {
+        var errEl = document.getElementById(ctrl.id + '-error');
+        var isEmpty = ctrl.type === 'checkbox'
+          ? false
+          : !ctrl.value.trim();
+        if (ctrl.required && isEmpty) {
+          ctrl.setAttribute('aria-invalid', 'true');
+          if (errEl) errEl.textContent = 'This field is required.';
+          valid = false;
+        } else {
+          ctrl.removeAttribute('aria-invalid');
+          if (errEl) errEl.textContent = '';
+        }
+      });
+      if (!valid) return;
+      var summary = document.getElementById('summary');
+      var tbody = document.getElementById('summary-body');
+      tbody.innerHTML = '';
+      controls.forEach(function (ctrl) {
+        if (!ctrl.name) return;
+        var val;
+        if (ctrl.type === 'checkbox') {
+          val = ctrl.checked
+            ? (ctrl.dataset.trueValue || 'true')
+            : (ctrl.dataset.falseValue || 'false');
+        } else {
+          val = ctrl.value;
+        }
+        var tr = document.createElement('tr');
+        var tdName = document.createElement('td');
+        var tdVal = document.createElement('td');
+        tdName.textContent = ctrl.name;
+        tdVal.textContent = val;
+        tr.appendChild(tdName);
+        tr.appendChild(tdVal);
+        tbody.appendChild(tr);
+      });
+      summary.hidden = false;
+      summary.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    form.addEventListener('reset', function () {
+      var summary = document.getElementById('summary');
+      summary.hidden = true;
+      form.querySelectorAll('input, select, textarea').forEach(function (ctrl) {
+        ctrl.removeAttribute('aria-invalid');
+        var errEl = document.getElementById(ctrl.id + '-error');
+        if (errEl) errEl.textContent = '';
+      });
+    });
+  });
+})();
+  </script>
+</body>
+</html>
