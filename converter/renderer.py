@@ -105,6 +105,35 @@ button[type=reset]:hover { background: #ddd; }
   border-bottom: 1px solid #eee;
 }
 #summary th { font-weight: 600; background: #f8f8f8; }
+#fix-message {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+#fix-message h2 { font-size: 1.2rem; margin-bottom: 0.5rem; color: #1a1a2e; }
+.fix-meta { color: #888; font-size: 0.8rem; margin-bottom: 1rem; }
+.fix-meta code {
+  background: #f0f0f0;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-family: monospace;
+}
+.fix-pre {
+  background: #1a1a2e;
+  color: #a8ff78;
+  font-family: 'Cascadia Code', 'Fira Mono', 'Consolas', monospace;
+  font-size: 0.82rem;
+  padding: 1rem 1.2rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+#fix-copy-btn { background: #27ae60; color: #fff; }
+#fix-copy-btn:hover { background: #1e8449; }
 @media (max-width: 600px) {
   .field-group { grid-template-columns: 1fr; }
   .description, .field-error { grid-column: 1; }
@@ -113,19 +142,66 @@ button[type=reset]:hover { background: #ddd; }
 
 _JS = """\
 (function () {
-  var forms = document.querySelectorAll('form.atdl-form');
-  forms.forEach(function (form) {
+  /* ---- helpers ---- */
+  function pad2(n) { return n < 10 ? '0' + n : String(n); }
+
+  function buildFixMsg(form) {
+    var SOH = '\\x01';
+    /* collect filled parameter fields */
+    var paramFields = [];
+    form.querySelectorAll('[data-fix-tag]').forEach(function (ctrl) {
+      var tag = ctrl.dataset.fixTag;
+      if (!tag) return;
+      var val;
+      if (ctrl.type === 'checkbox') {
+        val = ctrl.checked
+          ? (ctrl.dataset.trueValue || 'Y')
+          : (ctrl.dataset.falseValue || 'N');
+      } else {
+        val = ctrl.value;
+      }
+      if (val !== '') paramFields.push(tag + '=' + val);
+    });
+    /* standard header body fields (after BeginString / BodyLength) */
+    var now = new Date();
+    var sendingTime = String(now.getFullYear())
+      + pad2(now.getMonth() + 1) + pad2(now.getDate())
+      + '-' + pad2(now.getHours()) + ':' + pad2(now.getMinutes())
+      + ':' + pad2(now.getSeconds());
+    var senderCompID = form.dataset.providerId || 'PROVIDER';
+    var bodyFields = [
+      '35=D',
+      '49=' + senderCompID,
+      '56=BROKER',
+      '34=1',
+      '52=' + sendingTime
+    ].concat(paramFields);
+    /* body length = byte count of body string with SOH delimiters */
+    var bodyStr = bodyFields.join(SOH) + SOH;
+    var header = '8=FIX.4.2' + SOH + '9=' + bodyStr.length + SOH;
+    var raw = header + bodyStr;
+    /* checksum = sum of all ASCII values mod 256, zero-padded to 3 digits */
+    var cs = 0;
+    for (var i = 0; i < raw.length; i++) cs += raw.charCodeAt(i);
+    raw += '10=' + ('00' + (cs % 256)).slice(-3) + SOH;
+    return raw;
+  }
+
+  /* ---- shared state ---- */
+  var _lastRawMsg = '';
+
+  /* ---- form handlers ---- */
+  document.querySelectorAll('form.atdl-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+      /* validation */
       var controls = form.querySelectorAll(
         'input:not([readonly]), select, textarea'
       );
       var valid = true;
       controls.forEach(function (ctrl) {
         var errEl = document.getElementById(ctrl.id + '-error');
-        var isEmpty = ctrl.type === 'checkbox'
-          ? false
-          : !ctrl.value.trim();
+        var isEmpty = ctrl.type === 'checkbox' ? false : !ctrl.value.trim();
         if (ctrl.required && isEmpty) {
           ctrl.setAttribute('aria-invalid', 'true');
           if (errEl) errEl.textContent = 'This field is required.';
@@ -136,6 +212,7 @@ _JS = """\
         }
       });
       if (!valid) return;
+      /* summary table */
       var summary = document.getElementById('summary');
       var tbody = document.getElementById('summary-body');
       tbody.innerHTML = '';
@@ -162,12 +239,19 @@ _JS = """\
         tbody.appendChild(tr);
       });
       summary.hidden = false;
+      /* FIX message */
+      _lastRawMsg = buildFixMsg(form);
+      var fixSection = document.getElementById('fix-message');
+      document.getElementById('fix-message-body').textContent =
+        _lastRawMsg.replace(/\\x01/g, '|\\n');
+      fixSection.hidden = false;
       summary.scrollIntoView({ behavior: 'smooth' });
     });
 
     form.addEventListener('reset', function () {
-      var summary = document.getElementById('summary');
-      summary.hidden = true;
+      document.getElementById('summary').hidden = true;
+      document.getElementById('fix-message').hidden = true;
+      _lastRawMsg = '';
       form.querySelectorAll('input, select, textarea').forEach(function (ctrl) {
         ctrl.removeAttribute('aria-invalid');
         var errEl = document.getElementById(ctrl.id + '-error');
@@ -175,6 +259,30 @@ _JS = """\
       });
     });
   });
+
+  /* ---- copy button ---- */
+  var copyBtn = document.getElementById('fix-copy-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      var text = _lastRawMsg.replace(/\\x01/g, '|');
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function () {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(function () { copyBtn.textContent = 'Copy to Clipboard'; }, 2000);
+      }).catch(function () {
+        /* execCommand fallback for non-HTTPS contexts */
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(function () { copyBtn.textContent = 'Copy to Clipboard'; }, 2000);
+      });
+    });
+  }
 })();
 """
 
@@ -417,12 +525,14 @@ def _render_strategy(strategy_elem: etree._Element, strategy_index: int) -> str:
 
     fields_html = "\n".join(field_groups)
     form_id = f"atdl-form-{strategy_index}"
+    esc_provider_id = html.escape(provider_id, quote=True)
 
     return (
         f'  <section class="strategy-section">\n'
         f"    <h1>Strategy: {esc_name}</h1>\n"
         f'    <p class="meta">{meta_html}</p>\n'
-        f'    <form id="{form_id}" class="atdl-form" novalidate>\n'
+        f'    <form id="{form_id}" class="atdl-form" novalidate'
+        f' data-provider-id="{esc_provider_id}">\n'
         f"      <fieldset>\n"
         f"        <legend>{esc_name}</legend>\n"
         f"{fields_html}\n"
@@ -479,6 +589,15 @@ def render_html(root: etree._Element, title: str | None = None) -> str:
         "      <thead><tr><th>Parameter</th><th>FIX Tag Number</th><th>Value</th></tr></thead>\n"
         '      <tbody id="summary-body"></tbody>\n'
         "    </table>\n"
+        "  </section>\n"
+        '  <section id="fix-message" hidden>\n'
+        "    <h2>Raw FIX 4.2 Message</h2>\n"
+        '    <p class="fix-meta">Fields delimited by <code>|</code> (SOH substitute).'
+        " Empty optional parameters are omitted.</p>\n"
+        '    <pre id="fix-message-body" class="fix-pre"></pre>\n'
+        '    <div class="actions">\n'
+        '      <button id="fix-copy-btn" type="button">Copy to Clipboard</button>\n'
+        "    </div>\n"
         "  </section>\n"
         f"  <script>\n{_JS}  </script>\n"
         "</body>\n"

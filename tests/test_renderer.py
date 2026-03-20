@@ -161,6 +161,14 @@ class TestRenderHtml:
         assert content.startswith("<!DOCTYPE html>")
         assert "Algo" in content
 
+    def test_fix_message_section_present(self):
+        root = _make_root([{"name": "Algo", "params": []}])
+        out = render_html(root)
+        assert "Raw FIX 4.2 Message" in out
+        assert 'id="fix-message"' in out
+        assert 'id="fix-message-body"' in out
+        assert 'id="fix-copy-btn"' in out
+
     def test_fix_tag_in_data_attribute_and_summary_header(self):
         root = _make_root([{
             "name": "Algo",
