@@ -3,6 +3,8 @@
 Converts a proprietary algo descriptor format (JSON) to FIXATDL 1.1 XML and
 optionally validates the output against the official FIXATDL 1.1 XSD schema.
 
+In addition, enables rendering ATDL into an interactive HTML page for a human and interactive in-browser verification.
+
 ---
 
 ## Input Format
