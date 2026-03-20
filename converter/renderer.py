@@ -533,6 +533,8 @@ def _render_strategy(strategy_elem: etree._Element, strategy_index: int) -> str:
         f'    <p class="meta">{meta_html}</p>\n'
         f'    <form id="{form_id}" class="atdl-form" novalidate'
         f' data-provider-id="{esc_provider_id}">\n'
+        f'      <input type="hidden" name="StrategyName"'
+        f' data-fix-tag="5010" value="{html.escape(name, quote=True)}">\n'
         f"      <fieldset>\n"
         f"        <legend>{esc_name}</legend>\n"
         f"{fields_html}\n"

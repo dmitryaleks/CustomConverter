@@ -91,6 +91,35 @@ button[type=reset]:hover { background: #ddd; }
   border-bottom: 1px solid #eee;
 }
 #summary th { font-weight: 600; background: #f8f8f8; }
+#fix-message {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+#fix-message h2 { font-size: 1.2rem; margin-bottom: 0.5rem; color: #1a1a2e; }
+.fix-meta { color: #888; font-size: 0.8rem; margin-bottom: 1rem; }
+.fix-meta code {
+  background: #f0f0f0;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-family: monospace;
+}
+.fix-pre {
+  background: #1a1a2e;
+  color: #a8ff78;
+  font-family: 'Cascadia Code', 'Fira Mono', 'Consolas', monospace;
+  font-size: 0.82rem;
+  padding: 1rem 1.2rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+#fix-copy-btn { background: #27ae60; color: #fff; }
+#fix-copy-btn:hover { background: #1e8449; }
 @media (max-width: 600px) {
   .field-group { grid-template-columns: 1fr; }
   .description, .field-error { grid-column: 1; }
@@ -101,7 +130,8 @@ button[type=reset]:hover { background: #ddd; }
   <section class="strategy-section">
     <h1>Strategy: MyAlgo</h1>
     <p class="meta">Provider: CustomProvider | Version: 1 | Strategy Identifier Tag: 847</p>
-    <form id="atdl-form-0" class="atdl-form" novalidate>
+    <form id="atdl-form-0" class="atdl-form" novalidate data-provider-id="CustomProvider">
+      <input type="hidden" name="StrategyName" data-fix-tag="5010" value="MyAlgo">
       <fieldset>
         <legend>MyAlgo</legend>
       <div class="field-group">
@@ -135,21 +165,76 @@ button[type=reset]:hover { background: #ddd; }
       <tbody id="summary-body"></tbody>
     </table>
   </section>
+  <section id="fix-message" hidden>
+    <h2>Raw FIX 4.2 Message</h2>
+    <p class="fix-meta">Fields delimited by <code>|</code> (SOH substitute). Empty optional parameters are omitted.</p>
+    <pre id="fix-message-body" class="fix-pre"></pre>
+    <div class="actions">
+      <button id="fix-copy-btn" type="button">Copy to Clipboard</button>
+    </div>
+  </section>
   <script>
 (function () {
-  var forms = document.querySelectorAll('form.atdl-form');
-  forms.forEach(function (form) {
+  /* ---- helpers ---- */
+  function pad2(n) { return n < 10 ? '0' + n : String(n); }
+
+  function buildFixMsg(form) {
+    var SOH = '\x01';
+    /* collect filled parameter fields */
+    var paramFields = [];
+    form.querySelectorAll('[data-fix-tag]').forEach(function (ctrl) {
+      var tag = ctrl.dataset.fixTag;
+      if (!tag) return;
+      var val;
+      if (ctrl.type === 'checkbox') {
+        val = ctrl.checked
+          ? (ctrl.dataset.trueValue || 'Y')
+          : (ctrl.dataset.falseValue || 'N');
+      } else {
+        val = ctrl.value;
+      }
+      if (val !== '') paramFields.push(tag + '=' + val);
+    });
+    /* standard header body fields (after BeginString / BodyLength) */
+    var now = new Date();
+    var sendingTime = String(now.getFullYear())
+      + pad2(now.getMonth() + 1) + pad2(now.getDate())
+      + '-' + pad2(now.getHours()) + ':' + pad2(now.getMinutes())
+      + ':' + pad2(now.getSeconds());
+    var senderCompID = form.dataset.providerId || 'PROVIDER';
+    var bodyFields = [
+      '35=D',
+      '49=' + senderCompID,
+      '56=BROKER',
+      '34=1',
+      '52=' + sendingTime
+    ].concat(paramFields);
+    /* body length = byte count of body string with SOH delimiters */
+    var bodyStr = bodyFields.join(SOH) + SOH;
+    var header = '8=FIX.4.2' + SOH + '9=' + bodyStr.length + SOH;
+    var raw = header + bodyStr;
+    /* checksum = sum of all ASCII values mod 256, zero-padded to 3 digits */
+    var cs = 0;
+    for (var i = 0; i < raw.length; i++) cs += raw.charCodeAt(i);
+    raw += '10=' + ('00' + (cs % 256)).slice(-3) + SOH;
+    return raw;
+  }
+
+  /* ---- shared state ---- */
+  var _lastRawMsg = '';
+
+  /* ---- form handlers ---- */
+  document.querySelectorAll('form.atdl-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+      /* validation */
       var controls = form.querySelectorAll(
         'input:not([readonly]), select, textarea'
       );
       var valid = true;
       controls.forEach(function (ctrl) {
         var errEl = document.getElementById(ctrl.id + '-error');
-        var isEmpty = ctrl.type === 'checkbox'
-          ? false
-          : !ctrl.value.trim();
+        var isEmpty = ctrl.type === 'checkbox' ? false : !ctrl.value.trim();
         if (ctrl.required && isEmpty) {
           ctrl.setAttribute('aria-invalid', 'true');
           if (errEl) errEl.textContent = 'This field is required.';
@@ -160,6 +245,7 @@ button[type=reset]:hover { background: #ddd; }
         }
       });
       if (!valid) return;
+      /* summary table */
       var summary = document.getElementById('summary');
       var tbody = document.getElementById('summary-body');
       tbody.innerHTML = '';
@@ -186,12 +272,19 @@ button[type=reset]:hover { background: #ddd; }
         tbody.appendChild(tr);
       });
       summary.hidden = false;
+      /* FIX message */
+      _lastRawMsg = buildFixMsg(form);
+      var fixSection = document.getElementById('fix-message');
+      document.getElementById('fix-message-body').textContent =
+        _lastRawMsg.replace(/\x01/g, '|\n');
+      fixSection.hidden = false;
       summary.scrollIntoView({ behavior: 'smooth' });
     });
 
     form.addEventListener('reset', function () {
-      var summary = document.getElementById('summary');
-      summary.hidden = true;
+      document.getElementById('summary').hidden = true;
+      document.getElementById('fix-message').hidden = true;
+      _lastRawMsg = '';
       form.querySelectorAll('input, select, textarea').forEach(function (ctrl) {
         ctrl.removeAttribute('aria-invalid');
         var errEl = document.getElementById(ctrl.id + '-error');
@@ -199,6 +292,30 @@ button[type=reset]:hover { background: #ddd; }
       });
     });
   });
+
+  /* ---- copy button ---- */
+  var copyBtn = document.getElementById('fix-copy-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      var text = _lastRawMsg.replace(/\x01/g, '|');
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function () {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(function () { copyBtn.textContent = 'Copy to Clipboard'; }, 2000);
+      }).catch(function () {
+        /* execCommand fallback for non-HTTPS contexts */
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(function () { copyBtn.textContent = 'Copy to Clipboard'; }, 2000);
+      });
+    });
+  }
 })();
   </script>
 </body>

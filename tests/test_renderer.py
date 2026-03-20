@@ -161,6 +161,13 @@ class TestRenderHtml:
         assert content.startswith("<!DOCTYPE html>")
         assert "Algo" in content
 
+    def test_strategy_name_carried_on_fix_tag_5010(self):
+        root = _make_root([{"name": "MyStrategy", "params": []}])
+        out = render_html(root)
+        assert 'data-fix-tag="5010"' in out
+        assert 'value="MyStrategy"' in out
+        assert 'name="StrategyName"' in out
+
     def test_fix_message_section_present(self):
         root = _make_root([{"name": "Algo", "params": []}])
         out = render_html(root)
