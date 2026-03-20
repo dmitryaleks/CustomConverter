@@ -62,6 +62,12 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="XSD",
         help=f"Path to the FIXATDL XSD schema (default: {_DEFAULT_SCHEMA})",
     )
+    p.add_argument(
+        "--html",
+        type=Path,
+        metavar="HTML",
+        help="Render ATDL strategies to a self-contained HTML file",
+    )
     return p
 
 
@@ -90,6 +96,15 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         print(f"Error writing output: {exc}", file=sys.stderr)
         return 2
+
+    # --- Optional HTML render ---
+    if args.html:
+        from converter.renderer import write_html
+        try:
+            write_html(root, args.html)
+        except OSError as exc:
+            print(f"Error writing HTML output: {exc}", file=sys.stderr)
+            return 2
 
     # --- Optional validation ---
     if args.validate:
