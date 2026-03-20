@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+  <Strategy name="STEALTH" uiRep="STEALTH" wireValue="STEALTH" fixMsgType="D" providerID="CustomProvider" version="1">
+    <!-- StartTime: Scheduled start time for algo execution window (UTC) -->
+    <Parameter name="StartTime" xsi:type="core:UTCTimeOnly_t" fixTag="6001" mutableOnCxlRpl="true"/>
+    <!-- EndTime: Scheduled end time for algo execution window (UTC); must be after StartTime -->
+    <Parameter name="EndTime" xsi:type="core:UTCTimeOnly_t" fixTag="6002" mutableOnCxlRpl="true"/>
+    <!-- TargetPrice: Limit price beyond which the algo will not trade; leave blank for market-price tracking -->
+    <Parameter name="TargetPrice" xsi:type="core:Price_t" fixTag="6003" mutableOnCxlRpl="true"/>
+    <!-- DisplayQuantity: Maximum share quantity to display on the order book at any moment (iceberg/reserve size) -->
+    <Parameter name="DisplayQuantity" xsi:type="core:Qty_t" fixTag="6004" mutableOnCxlRpl="true"/>
+    <!-- MinFillSize: Minimum acceptable fill quantity per execution; rejects partial fills smaller than this -->
+    <Parameter name="MinFillSize" xsi:type="core:Qty_t" fixTag="6005" mutableOnCxlRpl="true"/>
+    <!-- MaxParticipationRate: Maximum fraction of market volume the algo may consume (e.g. 0.10 = 10%) -->
+    <Parameter name="MaxParticipationRate" xsi:type="core:Percentage_t" fixTag="6006" mutableOnCxlRpl="true"/>
+    <!-- Sentiment: Market sentiment bias used to skew intraday participation-rate curve -->
+    <Parameter name="Sentiment" xsi:type="core:String_t" fixTag="6007" mutableOnCxlRpl="true">
+      <EnumPair enumID="Bullish" wireValue="Bullish"/>
+      <EnumPair enumID="Bearish" wireValue="Bearish"/>
+      <EnumPair enumID="Neutral" wireValue="Neutral"/>
+    </Parameter>
+    <!-- VenueFocus: Preferred liquidity pool selection strategy across lit and dark venues -->
+    <Parameter name="VenueFocus" xsi:type="core:String_t" fixTag="6008" mutableOnCxlRpl="true">
+      <EnumPair enumID="DarkOnly" wireValue="DarkOnly"/>
+      <EnumPair enumID="LitOnly" wireValue="LitOnly"/>
+      <EnumPair enumID="Mixed" wireValue="Mixed"/>
+      <EnumPair enumID="SmartRoute" wireValue="SmartRoute"/>
+    </Parameter>
+    <!-- AllowOddLots: When enabled, the algo may submit and accept odd-lot fills to improve completion rate -->
+    <Parameter name="AllowOddLots" xsi:type="core:Boolean_t" fixTag="6009" mutableOnCxlRpl="true"/>
+    <!-- PostTradeAction: Action taken when the execution window closes or the order is fully filled -->
+    <Parameter name="PostTradeAction" xsi:type="core:String_t" fixTag="6010" mutableOnCxlRpl="true">
+      <EnumPair enumID="ReportOnly" wireValue="ReportOnly"/>
+      <EnumPair enumID="CancelRemainder" wireValue="CancelRemainder"/>
+      <EnumPair enumID="MarketOnClose" wireValue="MarketOnClose"/>
+      <EnumPair enumID="Rollover" wireValue="Rollover"/>
+    </Parameter>
+  </Strategy>
+</Strategies>
