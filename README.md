@@ -619,24 +619,226 @@ python run_evals.py examples/adversarial/ --baseline evals_baseline.json
 python run_evals.py examples/adversarial/ --format json --output results.json
 ```
 
+See [Source Converter Integration](#source-converter-integration) for full
+details on `TypeMapper`, `type_map.toml`, and the iterative eval workflow.
+
+---
+
+## Source Converter Integration
+
+The `source_converter/` package bridges the gap between a proprietary source
+system and the FIXATDL JSON descriptor format. The source→JSON step is a
+rule-based converter (external to this repo) that reads the source format and
+writes JSON files. The biggest quality risk is **type mismatches**: the source
+system uses a different type vocabulary (e.g. `"price"`, `"double"`,
+`"datetime"`) than FIXATDL 1.1 (e.g. `"Price_t"`, `"Float_t"`,
+`"UTCTimeStamp_t"`). The type mapper solves this with a single editable config
+file and built-in coverage tracking.
+
+### Pipeline overview
+
+```
+Source format
+     │
+     ▼
+Source→JSON converter  ←── TypeMapper.map("price") → "Price_t"
+     │
+     ▼
+JSON descriptor files  (TYPE fields contain valid FIXATDL types)
+     │
+     ▼
+run_evals.py           (validates end-to-end, produces 4 reports)
+     │
+     ▼
+Dashboard + type mapping + coverage + diff/changelog
+```
+
+### TypeMapper
+
+`TypeMapper` is used **inside the source→JSON converter** to translate source
+type names to FIXATDL types before writing the JSON:
+
+```python
+from source_converter.type_mapper import TypeMapper
+
+mapper = TypeMapper()  # loads source_converter/type_map.toml
+
+for param in source_params:
+    fixatdl_type = mapper.map(param.source_type)
+    if fixatdl_type is None:
+        # Unknown type — log and skip or raise
+        raise ValueError(f"No FIXATDL mapping for source type '{param.source_type}'")
+    output_params.append({param.name: {
+        "NAME":        param.name,
+        "TYPE":        fixatdl_type,   # ← mapped FIXATDL type
+        "FIXTAGNUMBER": param.fix_tag,
+        "DESCRIPTION": param.description,
+    }})
+
+# After converting all strategies, inspect coverage
+report = mapper.coverage_report()
+print(f"Mapped:   {[e['source'] for e in report['mapped']]}")
+print(f"Unmapped: {report['unmapped']}")   # source types with no config entry
+```
+
+Lookups are **case-insensitive** — `"Price"`, `"PRICE"`, and `"price"` all
+resolve to `"Price_t"`.
+
 ### Type mapping config (`source_converter/type_map.toml`)
 
-The type mapper translates source-vocabulary type names (e.g. from a Java or C# source
-system) to FIXATDL 1.1 types. The mapping is case-insensitive and editable without
-code changes:
+All mappings live in a single TOML file. Edit it without touching any code:
 
 ```toml
 [types]
-price    = "Price_t"
-double   = "Float_t"
-integer  = "Int_t"
-string   = "String_t"
-datetime = "UTCTimeStamp_t"
+price        = "Price_t"
+double       = "Float_t"
+float        = "Float_t"
+integer      = "Int_t"
+int          = "Int_t"
+string       = "String_t"
+boolean      = "Boolean_t"
+bool         = "Boolean_t"
+date         = "UTCDate_t"
+datetime     = "UTCTimeStamp_t"
+time         = "UTCTimeOnly_t"
+qty          = "Qty_t"
+quantity     = "Qty_t"
+char         = "Char_t"
+percent      = "Percentage_t"
+priceoffset  = "PriceOffset_t"
+currency     = "Currency_t"
 # extend as new source types are discovered
 ```
 
-The coverage report shows which source type values appeared in the batch but have no
-entry in the config — making it easy to discover and fill gaps incrementally.
+All values are validated against the full `VALID_TYPES` set automatically
+by `tests/test_type_mapper.py::TestTypeMapValidity` on every test run — a
+bad entry causes an immediate test failure.
+
+### Batch evaluation workflow
+
+The recommended iterative workflow for developing and maintaining the
+source→JSON converter:
+
+#### 1. Convert a batch of strategies
+
+Run your source→JSON converter over a directory of source files to produce
+`examples/my_batch/*.json`.
+
+#### 2. Run the eval and review the dashboard
+
+```bash
+python run_evals.py examples/my_batch/ --warnings
+```
+
+**Dashboard (Report A)** — pass/fail summary per file:
+
+```
+Strategy            JSON  XSD   Semantic
+────────────────────────────────────────
+VWAP.json           pass  pass    pass
+TWAP.json           pass  pass    pass
+DARK_SEEK.json      pass  pass    pass
+ARRIVAL_PRICE.json  pass  pass    pass
+────────────────────────────────────────
+Total: 4   Passed all: 4   Failed: 0
+```
+
+JSON failures appear with `FAIL` and inline error details. XSD and Semantic
+columns show `--` when skipped due to a JSON failure upstream.
+
+**Type mapping report (Report B)** — shows which FIXATDL types each parameter
+uses and whether a source alias is configured:
+
+```
+File                Parameter        FIXATDL Type   Source Aliases  In Map?
+────────────────────────────────────────────────────────────────────────────
+VWAP.json           StartTime        UTCTimeOnly_t  time
+VWAP.json           MaxPartRate      Percentage_t   percent
+ARRIVAL_PRICE.json  ArrivalPxOffset  PriceOffset_t  priceoffset
+ARRIVAL_PRICE.json  Currency         Currency_t     currency
+```
+
+Parameters flagged with `← not in type_map.toml` have no source alias
+configured — add entries for them.
+
+**Coverage report (Report C)** — which source aliases were exercised and which
+FIXATDL types appeared with no alias:
+
+```
+Type mapping coverage  (total lookups: 20)
+
+Mapped types:
+  double               → Float_t
+  datetime             → UTCTimeStamp_t
+
+Unmapped types (add to type_map.toml):
+  Char_t
+  MultipleCharValue_t
+```
+
+The mapper records every `map()` call. When your source→JSON converter calls
+`mapper.map(source_type)` before writing each JSON file, the coverage report
+shows exactly which source types are missing a config entry.
+
+#### 3. Save a baseline
+
+Once the batch is in a known-good state, save the results as a baseline:
+
+```bash
+python run_evals.py examples/my_batch/ --output evals_baseline.json
+```
+
+#### 4. Iterate — re-run with diff
+
+After modifying the converter or adding new strategies, re-run against the
+baseline to catch regressions immediately:
+
+```bash
+python run_evals.py examples/my_batch/ --baseline evals_baseline.json
+```
+
+**Diff / changelog (Report D)** — shows only what changed:
+
+```
+Conversion diff / changelog
+==============================
+
+Regressions (1 newly failing):
+  FAIL DARK_SEEK.json
+      + [JSON-13] 'TYPE' value 'qty' is not a recognised FIXATDL 1.1 type
+
+Fixes (1 newly passing):
+  pass ARRIVAL_PRICE.json
+      - [JSON-20] 'NAME' must be a valid FIXATDL identifier
+
+No changes — 2 strategies identical to baseline.
+```
+
+#### 5. Extend type_map.toml as new source types appear
+
+When the coverage report lists new unmapped types, add them to the config:
+
+```toml
+# source_converter/type_map.toml
+multicharvalue = "MultipleCharValue_t"
+exchange       = "Exchange_t"
+```
+
+The `TestTypeMapValidity` test cross-checks every new entry against
+`VALID_TYPES` automatically — an invalid value fails immediately.
+
+### Sample strategies
+
+`examples/sample_strategies/` contains four realistic algo descriptors
+(VWAP, TWAP, DARK\_SEEK, ARRIVAL\_PRICE) that all pass end-to-end validation
+and can be used to smoke-test the eval pipeline:
+
+```bash
+python run_evals.py examples/sample_strategies/ --warnings
+```
+
+A saved baseline is at `evals_baseline.json` (sample strategies) and
+`evals_adversarial_baseline.json` (adversarial examples).
 
 ---
 
