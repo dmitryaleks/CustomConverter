@@ -1,10 +1,15 @@
-# Schema Validator — Implementation Plan
+# Schema Validator — Reference
+
+Standalone three-phase validator for FIXATDL 1.1 XML documents.
+All implementation steps are complete; 58 tests pass.
+
+---
 
 ## Purpose
 
-Extend the existing `--validate` flag (which only checks XSD structural
-conformance) with a standalone, multi-layer validation tool that catches errors
-the XSD alone cannot express.  The tool operates in three escalating phases:
+Extends the existing `--validate` flag (Phase 1 XSD only) with a standalone
+multi-layer validation tool that catches errors the XSD alone cannot express.
+The tool operates in three escalating phases:
 
 1. **Structural** — XSD validation against all six ATDL 1.1 schemas
 2. **Referential integrity** — cross-element references that the XSD's `xs:key`
@@ -12,9 +17,12 @@ the XSD alone cannot express.  The tool operates in three escalating phases:
 3. **Semantic / business rules** — FIXATDL-specific invariants derived from the
    specification prose and schema annotations
 
+Phase 2 and Phase 3 are skipped automatically when Phase 1 reports errors —
+referential and semantic checks are unreliable on structurally invalid XML.
+
 ---
 
-## Schema Overview (Inputs to the Validator)
+## Schema Overview
 
 | File | Namespace | Role | Required |
 |------|-----------|------|----------|
@@ -30,11 +38,11 @@ is `atdl-core-1-1.xsd`.
 
 ---
 
-## Validation Phases and Rules
+## Validation Rules
 
 ### Phase 1 — Structural (XSD)
 
-Run `lxml.etree.XMLSchema` against `atdl-core-1-1.xsd`.  Catches:
+Run `lxml.etree.XMLSchema` against `atdl-core-1-1.xsd`. Catches:
 
 - Missing required attributes (`name`, `wireValue`, `version` on `Strategy`;
   `strategyIdentifierTag` on `Strategies`; `minSize` on `RepeatingGroup`, etc.)
@@ -47,41 +55,36 @@ Run `lxml.etree.XMLSchema` against `atdl-core-1-1.xsd`.  Catches:
 
 ### Phase 2 — Referential Integrity
 
-Checks that cross-element references resolve correctly.  The XSD enforces some
-of these within a single schema but not across optional sub-schema boundaries.
-
-| Rule ID | Description |
-|---------|-------------|
-| **REF-01** | `Control@parameterRef` must match a `Parameter@name` in the same `Strategy` |
-| **REF-02** | Each `Parameter@name` is referenced by **at most one** `Control@parameterRef` within a `Strategy` |
-| **REF-03** | `EditRef@id` must match an `Edit@id` declared at `Strategies` or `Strategy` scope |
-| **REF-04** | `StateRule` child `EditRef@id` must resolve to a reachable `Edit@id` |
-| **REF-05** | `Edit@field` and `Edit@field2` must match a `Parameter@name` in the same `Strategy` |
-| **REF-06** | `ListItem@enumID` in a `Control` must match an `EnumPair@enumID` on the `Parameter` referenced by that control's `parameterRef` |
-| **REF-07** | `Control@initValue` for list-type controls (DropDownList, SingleSelectList, etc.) must be a valid `enumID` present in the control's `ListItem` collection |
+| Rule | Description |
+|------|-------------|
+| REF-01 | `Control@parameterRef` must match a `Parameter@name` in the same `Strategy` |
+| REF-02 | Each `Parameter@name` is referenced by at most one `Control@parameterRef` within a `Strategy` |
+| REF-03 | `EditRef@id` must match an `Edit@id` declared at `Strategies` or `Strategy` scope |
+| REF-04 | `StateRule` child `EditRef@id` must resolve to a reachable `Edit@id` |
+| REF-05 | `Edit@field` and `Edit@field2` must match a `Parameter@name` in the same `Strategy` |
+| REF-06 | `ListItem@enumID` in a `Control` must match an `EnumPair@enumID` on the `Parameter` referenced by that control's `parameterRef` |
+| REF-07 | `Control@initValue` for list-type controls must be a valid `enumID` present in the control's `ListItem` collection |
 
 ### Phase 3 — Semantic / Business Rules
 
-Constraints expressed only in specification prose or schema annotations.
-
-| Rule ID | Description |
-|---------|-------------|
-| **SEM-01** | `EnumPair@wireValue` values must be **unique** within a single `Parameter` |
-| **SEM-02** | `EnumPair@enumID` values must be **unique** within a single `Parameter` |
-| **SEM-03** | A `Parameter` with `const="true"` must not also have `use="required"` |
-| **SEM-04** | A `Parameter` with `const="true"` should supply a `constValue` attribute appropriate to its `xsi:type` |
-| **SEM-05** | `Strategy@name` values must be **unique** within `Strategies` |
-| **SEM-06** | `Parameter@name` values must be **unique** within a `Strategy` |
-| **SEM-07** | Time parameters (`UTCTimeStamp_t`, `LocalMktTime_t`) that carry a `localMktTz` attribute must supply a value from the `LocalMktTz_t` enumeration in `atdl-timezones-1-1.xsd` |
-| **SEM-08** | `Country@CountryCode` values must be valid ISO 3166-1 alpha-2 codes as enumerated in `atdl-regions-1-1.xsd` for the declared region |
-| **SEM-09** | `Market@MICCode` must be exactly four uppercase alphanumeric characters (`[A-Z0-9]{4}`) |
-| **SEM-10** | `Edit` with `logicOperator` must contain at least one child `Edit` or `EditRef`; `Edit` with `operator` must contain no children |
-| **SEM-11** | `Edit@field2` and `Edit@value` are mutually exclusive |
-| **SEM-12** | `Edit@operator` and `Edit@logicOperator` are mutually exclusive |
-| **SEM-13** | `Parameter@minValue` ≤ `Parameter@maxValue` where both are present (applies to `Int_t`, `Float_t`, `Qty_t`, `Price_t`, `PriceOffset_t`, `Amt_t`, `Percentage_t`) |
-| **SEM-14** | `Parameter@minLength` ≤ `Parameter@maxLength` where both are present (`String_t`, `MultipleCharValue_t`, `MultipleStringValue_t`, `Data_t`) |
-| **SEM-15** | `Slider_t@increment` and `SingleSpinner_t@increment` must be positive when supplied |
-| **SEM-16** | `Strategies@strategyIdentifierTag` must not collide with any `Parameter@fixTag` in the document |
+| Rule | Severity | Description |
+|------|----------|-------------|
+| SEM-01 | Error | `EnumPair@wireValue` values must be unique within a `Parameter` |
+| SEM-02 | Error | `EnumPair@enumID` values must be unique within a `Parameter` |
+| SEM-03 | Error | `const="true"` and `use="required"` are contradictory |
+| SEM-04 | Warning | `const="true"` without a `constValue` attribute |
+| SEM-05 | Error | `Strategy@name` values must be unique within `Strategies` |
+| SEM-06 | Error | `Parameter@name` values must be unique within a `Strategy` |
+| SEM-07 | Error | `localMktTz` must be a valid IANA timezone from `atdl-timezones-1-1.xsd` |
+| SEM-08 | Error | `Country@CountryCode` must be valid for the declared `Region@name` |
+| SEM-09 | Error | `Market@MICCode` must match `[A-Z0-9]{4}` |
+| SEM-10 | Error | `Edit` with `logicOperator` requires child `Edit`/`EditRef`; with `operator` must have none |
+| SEM-11 | Error | `Edit@field2` and `Edit@value` are mutually exclusive |
+| SEM-12 | Error | `Edit@operator` and `Edit@logicOperator` are mutually exclusive |
+| SEM-13 | Error | `minValue` ≤ `maxValue` for numeric parameter types |
+| SEM-14 | Error | `minLength` ≤ `maxLength` for string parameter types |
+| SEM-15 | Error | `increment` must be positive for `Slider_t` and `SingleSpinner_t` |
+| SEM-16 | Error | `Strategies@strategyIdentifierTag` must not collide with any `Parameter@fixTag` |
 
 ---
 
@@ -93,23 +96,21 @@ CustomConverter/
 │   ├── __init__.py
 │   ├── loader.py          ← parse XML; index elements; load timezone/region enums from XSD
 │   ├── phase1_xsd.py      ← Phase 1: lxml XSD structural validation
-│   ├── phase2_refs.py     ← Phase 2: referential integrity checks
-│   ├── phase3_sem.py      ← Phase 3: semantic / business rules
+│   ├── phase2_refs.py     ← Phase 2: referential integrity checks (REF-01..07)
+│   ├── phase3_sem.py      ← Phase 3: semantic / business rules (SEM-01..16)
 │   ├── reporter.py        ← format and emit errors/warnings (text + JSON)
-│   └── runner.py          ← orchestrate all phases; return ValidationResult
+│   └── runner.py          ← orchestrate all phases; short-circuit on Phase 1 failure
 ├── validate_schema.py     ← CLI entrypoint
 └── tests/
     ├── fixtures/
-    │   ├── valid_full.xml           ← document exercising all sub-schemas
-    │   ├── invalid_xsd.xml          ← missing required attribute
-    │   ├── invalid_ref_control.xml  ← REF-01: bad parameterRef
-    │   ├── invalid_ref_edit.xml     ← REF-03: unresolved EditRef
-    │   ├── invalid_sem_dup_wire.xml ← SEM-01: duplicate wireValue
-    │   └── invalid_sem_minmax.xml   ← SEM-13: minValue > maxValue
-    ├── test_phase1.py
-    ├── test_phase2.py
-    └── test_phase3.py
+    │   └── valid_full.xml ← document exercising all sub-schemas (used by all three phases)
+    ├── test_phase1.py     ←  8 tests
+    ├── test_phase2.py     ← 25 tests (REF-01..07)
+    └── test_phase3.py     ← 25 tests (SEM-01..16)
 ```
+
+Tests for Phase 2 and Phase 3 build invalid XML programmatically via helper
+functions rather than loading additional fixture files.
 
 ---
 
@@ -158,20 +159,21 @@ class ValidationResult:
 - `run(ctx: DocumentContext) -> list[ValidationError]`
 - Implement SEM-01 through SEM-16
 - Numeric comparisons cast attribute strings to the appropriate Python types
+- `localMktTz` values are stripped before comparison (enum values in
+  `atdl-timezones-1-1.xsd` contain trailing spaces)
 
 ### `reporter.py`
-- `format_text(result: ValidationResult) -> str` — human-readable, line-per-error
+- `format_text(result: ValidationResult) -> str` — human-readable, one line per finding
 - `format_json(result: ValidationResult) -> str` — machine-readable JSON array
 
 ### `runner.py`
 - `validate(xml_path, schema_path, *, phases=(1,2,3)) -> ValidationResult`
-- Short-circuits after Phase 1 if structural errors are present (referential
-  and semantic checks are unreliable on structurally invalid XML)
+- Short-circuits after Phase 1 if structural errors are present
 - Allows callers to run a subset of phases (useful in unit tests)
 
 ---
 
-## CLI Entrypoint (`validate_schema.py`)
+## CLI (`validate_schema.py`)
 
 ```
 usage: validate_schema.py FILE [OPTIONS]
@@ -188,49 +190,31 @@ Options:
   --quiet               Suppress output; use exit code only
 ```
 
-**Exit codes:**
-- `0` — all selected phases passed (no errors)
-- `1` — one or more validation errors found
-- `2` — tool usage error or file I/O error
+**Exit codes:** `0` = valid, `1` = errors found, `2` = usage/file error.
 
 ---
 
-## Implementation Steps
+## Implementation Status
 
-| Step | Description |
-|------|-------------|
-| 1 | Create `schema_validator/` package |
-| 2 | Implement `loader.py` — XML parsing and element indexing |
-| 3 | Implement `phase1_xsd.py` — wrap lxml XSD validation |
-| 4 | Implement `phase2_refs.py` — REF-01 through REF-07 |
-| 5 | Implement `phase3_sem.py` — SEM-01 through SEM-16 |
-| 6 | Implement `reporter.py` — text and JSON formatters |
-| 7 | Implement `runner.py` — orchestrator with short-circuit logic |
-| 8 | Implement `validate_schema.py` — CLI entrypoint |
-| 9 | Create test fixtures (valid_full + one invalid file per rule category) |
-| 10 | Write unit tests for each phase module |
-
----
-
-## Libraries
-
-| Library | Use | Source |
-|---------|-----|--------|
-| `lxml` | XML parsing and XSD validation | `requirements.txt` (already present) |
-| `argparse` | CLI argument parsing | built-in |
-| `dataclasses` | `ValidationError`, `ValidationResult`, `DocumentContext` | built-in |
-| `json` | JSON output format | built-in |
-| `pathlib` | Path handling | built-in |
-
-No new dependencies are required.
+| Step | Description | Status |
+|------|-------------|--------|
+| 1 | Create `schema_validator/` package | ✅ Done |
+| 2 | `loader.py` — XML parsing and element indexing | ✅ Done |
+| 3 | `phase1_xsd.py` — wrap lxml XSD validation | ✅ Done |
+| 4 | `phase2_refs.py` — REF-01 through REF-07 | ✅ Done |
+| 5 | `phase3_sem.py` — SEM-01 through SEM-16 | ✅ Done |
+| 6 | `reporter.py` — text and JSON formatters | ✅ Done |
+| 7 | `runner.py` — orchestrator with short-circuit logic | ✅ Done |
+| 8 | `validate_schema.py` — CLI entrypoint | ✅ Done |
+| 9 | Test fixture (`valid_full.xml`) | ✅ Done |
+| 10 | Unit tests — `test_phase{1,2,3}.py` (58 tests total) | ✅ Done |
 
 ---
 
 ## Relationship to Existing Code
 
-- `converter/validator.py` performs Phase 1 only; `phase1_xsd.py` supersedes
-  it internally (the converter can optionally delegate to the new module)
-- The new tool is a **standalone CLI** (`validate_schema.py`) independent of
-  the converter pipeline, but shares the same `schemas/` directory
-- Both tools co-exist; the converter's `--validate` flag may be updated in a
-  future step to invoke the full three-phase runner instead of Phase 1 alone
+- `converter/validator.py` performs Phase 1 only and is used by the converter's
+  `--validate` flag; `schema_validator/phase1_xsd.py` provides the same check
+  as a standalone module
+- Both tools co-exist and share the `schemas/` directory
+- No new runtime dependencies — `lxml` was already required by the converter
