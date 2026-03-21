@@ -2,13 +2,14 @@
 
 Convert a proprietary ATDL JSON algorithm descriptor into valid **FIXATDL 1.1 XML**, validate the descriptor before conversion, validate the output against the official FIXATDL 1.1 XSD schemas, and render strategies as interactive self-contained HTML pages.
 
-Three independent CLI tools are provided:
+Four independent CLI tools are provided:
 
 | Tool | Purpose |
 |---|---|
 | `main.py` | Convert a JSON algo descriptor → FIXATDL 1.1 XML, with optional HTML rendering |
 | `validate_json.py` | Validate a JSON algo descriptor file (25 structural, semantic, and type-specific rules) |
 | `validate_schema.py` | Validate any ATDL XML document (structural + referential + semantic) |
+| `run_evals.py` | Batch-evaluate a directory of JSON descriptors end-to-end and report pass/fail, type mapping, and diffs |
 
 ---
 
@@ -30,6 +31,7 @@ CustomConverter/
 ├── main.py                      # Converter CLI
 ├── validate_json.py             # JSON descriptor validator CLI
 ├── validate_schema.py           # Schema validator CLI
+├── run_evals.py                 # Batch eval CLI
 ├── sample.json                  # Example input JSON
 ├── stealth.json                 # STEALTH algo example (10 parameters)
 ├── requirements.txt
@@ -46,6 +48,10 @@ CustomConverter/
 │   ├── phase3_sem.py            # Phase 3: semantic/business rules (SEM-01..16)
 │   ├── reporter.py              # Text and JSON output formatters
 │   └── runner.py                # Orchestrator (runs all three phases)
+├── source_converter/
+│   ├── type_map.toml            # Editable source vocab → FIXATDL type mapping
+│   ├── type_mapper.py           # TypeMapper class (lookup + coverage tracking)
+│   └── reporter.py              # Dashboard, type report, coverage, diff formatters
 ├── schemas/
 │   ├── atdl-core-1-1.xsd        # Root schema (imports the others)
 │   ├── atdl-validation-1-1.xsd
@@ -74,7 +80,9 @@ CustomConverter/
     ├── test_phase3.py
     ├── test_renderer.py
     ├── test_json_validator.py
-    └── test_adversarial_examples.py
+    ├── test_adversarial_examples.py
+    ├── test_type_mapper.py
+    └── test_eval_runner.py
 ```
 
 ---
@@ -531,6 +539,107 @@ Enforced automatically by `atdl-core-1-1.xsd` and its imports. Common failures:
 
 ---
 
+## Tool 4 — Batch Eval Runner (`run_evals.py`)
+
+Validates a directory of already-converted JSON descriptor files end-to-end
+(JSON rules → FIXATDL XML conversion → XSD + semantic validation) and prints
+four structured reports. Designed for CI pipelines and iterative development of
+the upstream source→JSON converter.
+
+### Usage
+
+```
+python run_evals.py JSONDIR [OPTIONS]
+```
+
+| Argument | Description |
+|---|---|
+| `JSONDIR` | Directory containing JSON descriptor files to evaluate |
+| `--baseline FILE` | Previous results JSON for diff/changelog output |
+| `--output FILE` | Persist results to this JSON file (must be outside `JSONDIR`) |
+| `--format text\|json` | Output format (default: `text`) |
+| `--warnings` | Include warnings in reports |
+| `--schema XSD` | Path to `atdl-core-1-1.xsd` (default: `schemas/atdl-core-1-1.xsd`) |
+
+#### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | All files passed all validation phases |
+| `1` | One or more files failed |
+| `2` | Usage error or directory/schema not found |
+
+### Reports
+
+**Report A — Aggregate pass/fail dashboard**
+
+Shows JSON / XSD / Semantic pass/fail for every file, with error details inline.
+
+```
+Strategy                      JSON  XSD   Semantic
+──────────────────────────────────────────────────
+VWAP.json                     pass  pass    pass
+ARRIVAL_PRICE.json            FAIL   --      --
+  ERROR: [JSON-13] 'TYPE' value 'Double' is not a recognised FIXATDL 1.1 parameter type.
+DARK_SEEK.json                pass  pass    FAIL
+  ERROR: [SEM:SEM-16] ...
+──────────────────────────────────────────────────
+Total: 3   Passed all: 1   Failed: 2
+```
+
+**Report B — Per-parameter type mapping**
+
+Cross-references each parameter's `TYPE` field against `source_converter/type_map.toml`
+to show the reverse mapping (FIXATDL type ← source aliases). Types with no alias in the
+map are flagged with `← not in type_map.toml`.
+
+**Report C — Coverage report**
+
+Which entries in `type_map.toml` were seen across the batch, and which source
+type values had no mapping (candidates to add to the config).
+
+**Report D — Conversion diff / changelog**
+
+Shown only when `--baseline` is supplied. Highlights regressions (newly failing),
+fixes (newly passing), and changed error sets relative to the saved baseline.
+
+### Examples
+
+```bash
+# Evaluate all files and show full output with warnings
+python run_evals.py examples/adversarial/ --warnings
+
+# Save a baseline for future comparison
+python run_evals.py examples/adversarial/ --output evals_baseline.json
+
+# Re-run and compare against the saved baseline
+python run_evals.py examples/adversarial/ --baseline evals_baseline.json
+
+# Machine-readable output for CI
+python run_evals.py examples/adversarial/ --format json --output results.json
+```
+
+### Type mapping config (`source_converter/type_map.toml`)
+
+The type mapper translates source-vocabulary type names (e.g. from a Java or C# source
+system) to FIXATDL 1.1 types. The mapping is case-insensitive and editable without
+code changes:
+
+```toml
+[types]
+price    = "Price_t"
+double   = "Float_t"
+integer  = "Int_t"
+string   = "String_t"
+datetime = "UTCTimeStamp_t"
+# extend as new source types are discovered
+```
+
+The coverage report shows which source type values appeared in the batch but have no
+entry in the config — making it easy to discover and fill gaps incrementally.
+
+---
+
 ## Adversarial JSON Examples (`examples/adversarial/`)
 
 Eight JSON descriptor files in `examples/adversarial/` intentionally trigger
@@ -565,7 +674,7 @@ python validate_json.py examples/adversarial/invalid_types.json --format json
 python -m pytest tests/ -v
 ```
 
-228 tests cover the full pipeline — JSON validation, conversion, XSD validation, and HTML rendering.
+283 tests cover the full pipeline — JSON validation, conversion, XSD validation, HTML rendering, type mapping, and batch evaluation.
 
 ```
 tests/test_parser.py                14 tests — JSON parsing, error cases
@@ -577,6 +686,8 @@ tests/test_phase3.py                25 tests — SEM-01..16
 tests/test_renderer.py              17 tests — HTML control mapping, CLI --html flag
 tests/test_json_validator.py        86 tests — JSON-01..25, file-based, CLI
 tests/test_adversarial_examples.py  18 tests — disk-based adversarial JSON examples
+tests/test_type_mapper.py           36 tests — TypeMapper lookup, coverage, config loading
+tests/test_eval_runner.py           19 tests — single-file pipeline, batch runner, CLI flags
 ```
 
 ---
@@ -602,6 +713,13 @@ python main.py sample.json output.xml --validate
 # 6. Full pipeline — validate JSON, convert, validate XML, render HTML
 python validate_json.py sample.json && \
 python main.py sample.json output.xml --validate --html output.html
+
+# 7. Batch-evaluate a directory of converted JSON files
+python run_evals.py examples/adversarial/ --warnings
+
+# 8. Save a baseline and detect regressions on re-run
+python run_evals.py examples/adversarial/ --output evals_baseline.json
+python run_evals.py examples/adversarial/ --baseline evals_baseline.json
 ```
 
 ## STEALTH Algo Example
