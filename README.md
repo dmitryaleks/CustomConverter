@@ -2,11 +2,12 @@
 
 Convert a proprietary ATDL JSON algorithm descriptor into valid **FIXATDL 1.1 XML**, then optionally validate the result against the official FIXATDL 1.1 XSD schemas.
 
-Two independent CLI tools are provided:
+Three independent CLI tools are provided:
 
 | Tool | Purpose |
 |---|---|
 | `main.py` | Convert a JSON algo descriptor → FIXATDL 1.1 XML, with optional HTML rendering |
+| `validate_json.py` | Validate a JSON algo descriptor file (19 structural and semantic rules) |
 | `validate_schema.py` | Validate any ATDL XML document (structural + referential + semantic) |
 
 ---
@@ -27,6 +28,7 @@ pip install -r requirements.txt
 ```
 CustomConverter/
 ├── main.py                      # Converter CLI
+├── validate_json.py             # JSON descriptor validator CLI
 ├── validate_schema.py           # Schema validator CLI
 ├── sample.json                  # Example input JSON
 ├── stealth.json                 # STEALTH algo example (10 parameters)
@@ -35,7 +37,8 @@ CustomConverter/
 │   ├── parser.py                # JSON → AlgoDef/ParameterDef dataclasses
 │   ├── builder.py               # dataclasses → lxml XML tree
 │   ├── validator.py             # XSD validation (used by --validate flag)
-│   └── renderer.py              # lxml XML tree → self-contained HTML page
+│   ├── renderer.py              # lxml XML tree → self-contained HTML page
+│   └── json_validator.py        # JSON descriptor validation logic (JSON-01..19)
 ├── schema_validator/
 │   ├── loader.py                # XML parsing and element indexing
 │   ├── phase1_xsd.py            # Phase 1: XSD structural validation
@@ -59,7 +62,8 @@ CustomConverter/
     ├── test_phase1.py
     ├── test_phase2.py
     ├── test_phase3.py
-    └── test_renderer.py
+    ├── test_renderer.py
+    └── test_json_validator.py
 ```
 
 ---
@@ -247,7 +251,107 @@ The generated XML follows the FIXATDL 1.1 structure. For `sample.json`:
 
 ---
 
-## Tool 2 — Schema Validator (`validate_schema.py`)
+## Tool 2 — JSON Descriptor Validator (`validate_json.py`)
+
+Validates a proprietary ATDL JSON algo descriptor file before conversion.
+Catches structural problems, wrong types, and semantic violations — with clear
+rule IDs and JSON paths — so errors are fixed at the source rather than
+surfacing as cryptic XML build failures.
+
+### Usage
+
+```
+python validate_json.py FILE [OPTIONS]
+```
+
+| Argument | Description |
+|---|---|
+| `FILE` | Path to the JSON descriptor file to validate |
+| `--format text\|json` | Output format (default: `text`) |
+| `--warnings` | Include warnings in output (default: errors only) |
+| `--quiet` | Suppress all output; use exit code only |
+
+#### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | No errors found — descriptor is valid |
+| `1` | One or more validation errors found |
+| `2` | File not found or file is not valid JSON |
+
+### Examples
+
+**Validate a descriptor (text output):**
+
+```bash
+python validate_json.py stealth.json
+```
+
+```
+Validation passed — no errors found.
+```
+
+**Validate and get JSON output (useful for CI pipelines):**
+
+```bash
+python validate_json.py bad.json --format json
+```
+
+```json
+[
+  {
+    "severity": "error",
+    "rule_id": "JSON-13",
+    "message": "'TYPE' value 'Widget_t' is not a recognised FIXATDL 1.1 parameter type.",
+    "path": "MyAlgo.PARAMETERS[0].P1.TYPE"
+  },
+  {
+    "severity": "error",
+    "rule_id": "JSON-16",
+    "message": "Duplicate FIXTAGNUMBER 5001 (first seen at index 0)",
+    "path": "MyAlgo.PARAMETERS[1].P2.FIXTAGNUMBER"
+  }
+]
+```
+
+**Silent check for use in shell scripts:**
+
+```bash
+python validate_json.py stealth.json --quiet
+if [ $? -eq 0 ]; then
+    echo "Valid — safe to convert"
+else
+    echo "Invalid — fix descriptor before converting"
+fi
+```
+
+### Validation rules reference
+
+| Rule | Severity | Check |
+|---|---|---|
+| JSON-01 | Error | Root must be a JSON object |
+| JSON-02 | Error | Root object must have exactly one key (the algo name) |
+| JSON-03 | Error | Algo name must be a non-empty string |
+| JSON-04 | Error | Algo value must be a JSON object containing a `PARAMETERS` key |
+| JSON-05 | Error | `PARAMETERS` must be a JSON array |
+| JSON-06 | Error | `PARAMETERS` array must not be empty |
+| JSON-07 | Error | Each entry in `PARAMETERS` must be a single-key JSON object |
+| JSON-08 | Error | The parameter body must be a JSON object |
+| JSON-09 | Error | `NAME` field is required |
+| JSON-10 | Error | `TYPE` field is required |
+| JSON-11 | Error | `FIXTAGNUMBER` field is required |
+| JSON-12 | Error | `NAME` must be a non-empty string |
+| JSON-13 | Error | `TYPE` must be a recognised FIXATDL 1.1 parameter type |
+| JSON-14 | Error | `FIXTAGNUMBER` must be a positive integer (rejects `bool`, `float`, `str`) |
+| JSON-15 | Error | `NAME` values must be unique within the strategy |
+| JSON-16 | Error | `FIXTAGNUMBER` values must be unique within the strategy |
+| JSON-17 | Error | `DESCRIPTION`, if present, must be a string |
+| JSON-18 | Error | `SUPPORTED_VALUES`, if present, must be a JSON array |
+| JSON-19 | Error | Each `SUPPORTED_VALUES` item must be a non-empty string |
+
+---
+
+## Tool 3 — Schema Validator (`validate_schema.py`)
 
 Validates any FIXATDL 1.1 XML document through three escalating phases. Each phase catches a different class of errors:
 
@@ -416,16 +520,17 @@ Enforced automatically by `atdl-core-1-1.xsd` and its imports. Common failures:
 python -m pytest tests/ -v
 ```
 
-121 tests cover the converter pipeline (parser, builder, validator, renderer) and all three validation phases.
+179 tests cover the full pipeline — JSON validation, conversion, XSD validation, and HTML rendering.
 
 ```
-tests/test_parser.py       14 tests — JSON parsing, error cases
-tests/test_builder.py      26 tests — XML structure, attributes, EnumPairs
-tests/test_validator.py     5 tests — XSD validation pass/fail
-tests/test_phase1.py        8 tests — structural checks
-tests/test_phase2.py       25 tests — REF-01..07
-tests/test_phase3.py       25 tests — SEM-01..16
-tests/test_renderer.py     14 tests — HTML control mapping, CLI --html flag
+tests/test_parser.py           14 tests — JSON parsing, error cases
+tests/test_builder.py          26 tests — XML structure, attributes, EnumPairs
+tests/test_validator.py         5 tests — XSD validation pass/fail
+tests/test_phase1.py            8 tests — structural checks
+tests/test_phase2.py           25 tests — REF-01..07
+tests/test_phase3.py           25 tests — SEM-01..16
+tests/test_renderer.py         17 tests — HTML control mapping, CLI --html flag
+tests/test_json_validator.py   55 tests — JSON-01..19, file-based, CLI
 ```
 
 ---
@@ -433,19 +538,23 @@ tests/test_renderer.py     14 tests — HTML control mapping, CLI --html flag
 ## End-to-End Example
 
 ```bash
-# 1. Convert sample.json to FIXATDL XML
+# 1. Validate the JSON descriptor before conversion
+python validate_json.py sample.json
+
+# 2. Convert sample.json to FIXATDL XML
 python main.py sample.json output.xml
 
-# 2. Validate the result with full detail
+# 3. Validate the output XML with full detail
 python validate_schema.py output.xml --warnings
 
-# 3. Validate in JSON format (e.g. for downstream tooling)
+# 4. Validate XML in JSON format (e.g. for downstream tooling)
 python validate_schema.py output.xml --format json --warnings
 
-# 4. Convert and validate in one step
+# 5. Convert and validate XML in one step
 python main.py sample.json output.xml --validate
 
-# 5. Convert, validate, and render an interactive HTML preview
+# 6. Full pipeline — validate JSON, convert, validate XML, render HTML
+python validate_json.py sample.json && \
 python main.py sample.json output.xml --validate --html output.html
 ```
 
