@@ -7,7 +7,7 @@ Three independent CLI tools are provided:
 | Tool | Purpose |
 |---|---|
 | `main.py` | Convert a JSON algo descriptor → FIXATDL 1.1 XML, with optional HTML rendering |
-| `validate_json.py` | Validate a JSON algo descriptor file (19 structural and semantic rules) |
+| `validate_json.py` | Validate a JSON algo descriptor file (25 structural, semantic, and type-specific rules) |
 | `validate_schema.py` | Validate any ATDL XML document (structural + referential + semantic) |
 
 ---
@@ -38,7 +38,7 @@ CustomConverter/
 │   ├── builder.py               # dataclasses → lxml XML tree
 │   ├── validator.py             # XSD validation (used by --validate flag)
 │   ├── renderer.py              # lxml XML tree → self-contained HTML page
-│   └── json_validator.py        # JSON descriptor validation logic (JSON-01..19)
+│   └── json_validator.py        # JSON descriptor validation logic (JSON-01..25)
 ├── schema_validator/
 │   ├── loader.py                # XML parsing and element indexing
 │   ├── phase1_xsd.py            # Phase 1: XSD structural validation
@@ -254,9 +254,9 @@ The generated XML follows the FIXATDL 1.1 structure. For `sample.json`:
 ## Tool 2 — JSON Descriptor Validator (`validate_json.py`)
 
 Validates a proprietary ATDL JSON algo descriptor file before conversion.
-Catches structural problems, wrong types, and semantic violations — with clear
-rule IDs and JSON paths — so errors are fixed at the source rather than
-surfacing as cryptic XML build failures.
+Catches structural problems, wrong types, semantic violations, and type-specific
+constraints — with clear rule IDs and JSON paths — so errors are fixed at the
+source rather than surfacing as cryptic XML build failures.
 
 ### Usage
 
@@ -348,6 +348,12 @@ fi
 | JSON-17 | Error | `DESCRIPTION`, if present, must be a string |
 | JSON-18 | Error | `SUPPORTED_VALUES`, if present, must be a JSON array |
 | JSON-19 | Error | Each `SUPPORTED_VALUES` item must be a non-empty string |
+| JSON-20 | Error | `NAME` must be a valid FIXATDL identifier: starts with a letter, followed by letters, digits, or underscores |
+| JSON-21 | Warning | `FIXTAGNUMBER` in the standard FIX range (1–4999); custom algo parameters should use values ≥ 5000 |
+| JSON-22 | Error | `SUPPORTED_VALUES` items must be unique within a parameter |
+| JSON-23 | Error | `Boolean_t` parameters must have 0 or 2 `SUPPORTED_VALUES` entries (true-wire and false-wire values) |
+| JSON-24 | Error | `Char_t` and `MultipleCharValue_t` parameters: each `SUPPORTED_VALUES` entry must be a single character |
+| JSON-25 | Warning | Unrecognised fields in a parameter body (only `NAME`, `TYPE`, `FIXTAGNUMBER`, `DESCRIPTION`, `SUPPORTED_VALUES` are valid) |
 
 ---
 
@@ -520,7 +526,7 @@ Enforced automatically by `atdl-core-1-1.xsd` and its imports. Common failures:
 python -m pytest tests/ -v
 ```
 
-179 tests cover the full pipeline — JSON validation, conversion, XSD validation, and HTML rendering.
+210 tests cover the full pipeline — JSON validation, conversion, XSD validation, and HTML rendering.
 
 ```
 tests/test_parser.py           14 tests — JSON parsing, error cases
@@ -530,7 +536,7 @@ tests/test_phase1.py            8 tests — structural checks
 tests/test_phase2.py           25 tests — REF-01..07
 tests/test_phase3.py           25 tests — SEM-01..16
 tests/test_renderer.py         17 tests — HTML control mapping, CLI --html flag
-tests/test_json_validator.py   55 tests — JSON-01..19, file-based, CLI
+tests/test_json_validator.py   86 tests — JSON-01..25, file-based, CLI
 ```
 
 ---

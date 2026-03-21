@@ -488,3 +488,235 @@ class TestCli:
         main([str(f)])
         out = capsys.readouterr().out
         assert "Validation passed" in out
+
+
+# ---------------------------------------------------------------------------
+# JSON-20 — NAME must match FIXATDL identifier pattern
+# ---------------------------------------------------------------------------
+
+class TestJSON20:
+    def _param(self, name: str) -> dict:
+        return {"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": name, "TYPE": "String_t", "FIXTAGNUMBER": 5001}}
+        ]}}
+
+    def test_name_starting_with_digit_fails(self):
+        issues = validate_data(self._param("1param"))
+        assert "JSON-20" in _rule_ids(issues)
+
+    def test_name_with_space_fails(self):
+        issues = validate_data(self._param("my param"))
+        assert "JSON-20" in _rule_ids(issues)
+
+    def test_name_with_hyphen_fails(self):
+        issues = validate_data(self._param("my-param"))
+        assert "JSON-20" in _rule_ids(issues)
+
+    def test_name_with_dot_fails(self):
+        issues = validate_data(self._param("my.param"))
+        assert "JSON-20" in _rule_ids(issues)
+
+    def test_name_underscore_only_fails(self):
+        # underscore is not a letter — fails because it doesn't start with [A-Za-z]
+        issues = validate_data(self._param("_param"))
+        assert "JSON-20" in _rule_ids(issues)
+
+    def test_valid_simple_name_passes(self):
+        issues = validate_data(self._param("myParam"))
+        assert "JSON-20" not in _rule_ids(issues)
+
+    def test_valid_name_with_digits_and_underscores_passes(self):
+        issues = validate_data(self._param("Param1_ABC"))
+        assert "JSON-20" not in _rule_ids(issues)
+
+    def test_single_letter_name_passes(self):
+        issues = validate_data(self._param("p"))
+        assert "JSON-20" not in _rule_ids(issues)
+
+
+# ---------------------------------------------------------------------------
+# JSON-21 — FIXTAGNUMBER in standard FIX range produces a warning
+# ---------------------------------------------------------------------------
+
+class TestJSON21:
+    def _param(self, tag: int) -> dict:
+        return {"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": tag}}
+        ]}}
+
+    def test_tag_in_standard_range_warns(self):
+        issues = validate_data(self._param(100))
+        warnings = [i for i in issues if i.rule_id == "JSON-21"]
+        assert warnings, "Expected a JSON-21 warning for tag 100"
+        assert warnings[0].severity == "warning"
+
+    def test_tag_4999_warns(self):
+        issues = validate_data(self._param(4999))
+        assert "JSON-21" in _rule_ids(issues)
+
+    def test_tag_5000_no_warning(self):
+        issues = validate_data(self._param(5000))
+        assert "JSON-21" not in _rule_ids(issues)
+
+    def test_tag_5001_no_warning(self):
+        issues = validate_data(self._param(5001))
+        assert "JSON-21" not in _rule_ids(issues)
+
+    def test_standard_tag_is_warning_not_error(self):
+        issues = validate_data(self._param(1))
+        errors = _errors(issues)
+        assert not any(i.rule_id == "JSON-21" for i in errors), \
+            "JSON-21 must be a warning, not an error"
+
+    def test_standard_tag_does_not_change_exit_code(self, tmp_path: Path):
+        from validate_json import main
+        f = tmp_path / "t.json"
+        f.write_text(json.dumps(self._param(100)), encoding="utf-8")
+        # Only warnings → exit 0 (not exit 1)
+        assert main([str(f)]) == 0
+
+
+# ---------------------------------------------------------------------------
+# JSON-22 — SUPPORTED_VALUES items must be unique within a parameter
+# ---------------------------------------------------------------------------
+
+class TestJSON22:
+    def test_duplicate_supported_value_fails(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "SUPPORTED_VALUES": ["A", "B", "A"]}}
+        ]}})
+        assert "JSON-22" in _rule_ids(issues)
+
+    def test_all_duplicate_supported_values_fail(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "SUPPORTED_VALUES": ["X", "X"]}}
+        ]}})
+        assert "JSON-22" in _rule_ids(issues)
+
+    def test_unique_supported_values_pass(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "SUPPORTED_VALUES": ["A", "B", "C"]}}
+        ]}})
+        assert "JSON-22" not in _rule_ids(issues)
+
+    def test_single_supported_value_passes(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "SUPPORTED_VALUES": ["Only"]}}
+        ]}})
+        assert "JSON-22" not in _rule_ids(issues)
+
+
+# ---------------------------------------------------------------------------
+# JSON-23 — Boolean_t SUPPORTED_VALUES must have 0 or 2 entries
+# ---------------------------------------------------------------------------
+
+class TestJSON23:
+    def _bool_param(self, sv) -> dict:
+        body: dict = {"NAME": "flag", "TYPE": "Boolean_t", "FIXTAGNUMBER": 5001}
+        if sv is not None:
+            body["SUPPORTED_VALUES"] = sv
+        return {"MyAlgo": {"PARAMETERS": [{"P": body}]}}
+
+    def test_boolean_one_supported_value_fails(self):
+        issues = validate_data(self._bool_param(["Y"]))
+        assert "JSON-23" in _rule_ids(issues)
+
+    def test_boolean_three_supported_values_fails(self):
+        issues = validate_data(self._bool_param(["Y", "N", "X"]))
+        assert "JSON-23" in _rule_ids(issues)
+
+    def test_boolean_zero_supported_values_passes(self):
+        issues = validate_data(self._bool_param(None))
+        assert "JSON-23" not in _rule_ids(issues)
+
+    def test_boolean_two_supported_values_passes(self):
+        issues = validate_data(self._bool_param(["Y", "N"]))
+        assert "JSON-23" not in _rule_ids(issues)
+
+    def test_non_boolean_type_not_constrained(self):
+        # String_t with 3 SUPPORTED_VALUES must NOT trigger JSON-23
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "SUPPORTED_VALUES": ["A", "B", "C"]}}
+        ]}})
+        assert "JSON-23" not in _rule_ids(issues)
+
+
+# ---------------------------------------------------------------------------
+# JSON-24 — Char_t / MultipleCharValue_t SUPPORTED_VALUES must be single chars
+# ---------------------------------------------------------------------------
+
+class TestJSON24:
+    def test_char_t_multi_char_entry_fails(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "Char_t", "FIXTAGNUMBER": 5001,
+                   "SUPPORTED_VALUES": ["AB"]}}
+        ]}})
+        assert "JSON-24" in _rule_ids(issues)
+
+    def test_multiple_char_value_t_multi_char_entry_fails(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "MultipleCharValue_t", "FIXTAGNUMBER": 5001,
+                   "SUPPORTED_VALUES": ["ABC", "D"]}}
+        ]}})
+        assert "JSON-24" in _rule_ids(issues)
+
+    def test_char_t_single_char_entries_pass(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "Char_t", "FIXTAGNUMBER": 5001,
+                   "SUPPORTED_VALUES": ["A", "B", "C"]}}
+        ]}})
+        assert "JSON-24" not in _rule_ids(issues)
+
+    def test_string_t_multi_char_entry_not_flagged(self):
+        # JSON-24 only applies to Char_t / MultipleCharValue_t
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "SUPPORTED_VALUES": ["LONG_VALUE"]}}
+        ]}})
+        assert "JSON-24" not in _rule_ids(issues)
+
+
+# ---------------------------------------------------------------------------
+# JSON-25 — unrecognised parameter body fields produce a warning
+# ---------------------------------------------------------------------------
+
+class TestJSON25:
+    def test_unknown_field_warns(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "EXTRA_FIELD": "unexpected"}}
+        ]}})
+        warnings = [i for i in issues if i.rule_id == "JSON-25"]
+        assert warnings, "Expected a JSON-25 warning for unknown field"
+        assert warnings[0].severity == "warning"
+        assert "EXTRA_FIELD" in warnings[0].message
+
+    def test_multiple_unknown_fields_each_warn(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "FOO": 1, "BAR": 2}}
+        ]}})
+        j25 = [i for i in issues if i.rule_id == "JSON-25"]
+        assert len(j25) == 2
+
+    def test_all_known_fields_no_warning(self):
+        issues = validate_data({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "DESCRIPTION": "desc", "SUPPORTED_VALUES": ["A"]}}
+        ]}})
+        assert "JSON-25" not in _rule_ids(issues)
+
+    def test_unknown_field_does_not_change_exit_code(self, tmp_path: Path):
+        from validate_json import main
+        f = tmp_path / "t.json"
+        f.write_text(json.dumps({"MyAlgo": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "UNKNOWN": "val"}}
+        ]}}), encoding="utf-8")
+        # Only warnings → exit 0
+        assert main([str(f)]) == 0

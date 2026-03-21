@@ -21,11 +21,22 @@ JSON-16  "FIXTAGNUMBER" values must be unique within the strategy.
 JSON-17  "DESCRIPTION", if present, must be a string.
 JSON-18  "SUPPORTED_VALUES", if present, must be a JSON array.
 JSON-19  Each item in "SUPPORTED_VALUES" must be a non-empty string.
+JSON-20  "NAME" must be a valid FIXATDL identifier: a letter followed by
+         letters, digits, or underscores (pattern [A-Za-z][A-Za-z0-9_]*).
+JSON-21  "FIXTAGNUMBER" in the standard FIX range (1–4999) produces a
+         warning; custom algo parameters should use values ≥ 5000.
+JSON-22  "SUPPORTED_VALUES" items must be unique within a parameter.
+JSON-23  For "Boolean_t" parameters, "SUPPORTED_VALUES" must be absent or
+         contain exactly 2 entries (true-wire and false-wire values).
+JSON-24  For "Char_t" and "MultipleCharValue_t" parameters, each
+         "SUPPORTED_VALUES" entry must be a single character.
+JSON-25  Unrecognised fields in a parameter body produce a warning.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -64,6 +75,18 @@ VALID_TYPES: frozenset[str] = frozenset({
     "UTCTimeStamp_t",
 })
 
+# Known fields in a parameter body (all others produce a JSON-25 warning).
+_KNOWN_PARAM_FIELDS: frozenset[str] = frozenset({
+    "NAME",
+    "TYPE",
+    "FIXTAGNUMBER",
+    "DESCRIPTION",
+    "SUPPORTED_VALUES",
+})
+
+# Pattern for a valid FIXATDL parameter identifier (JSON-20).
+_NAME_PATTERN: re.Pattern[str] = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -85,6 +108,11 @@ class ValidationIssue:
 
 def _err(rule_id: str, message: str, path: str = "") -> ValidationIssue:
     return ValidationIssue(severity="error", rule_id=rule_id,
+                           message=message, path=path)
+
+
+def _warn(rule_id: str, message: str, path: str = "") -> ValidationIssue:
+    return ValidationIssue(severity="warning", rule_id=rule_id,
                            message=message, path=path)
 
 
@@ -250,6 +278,16 @@ def validate_data(data: Any) -> list[ValidationIssue]:
                 else:
                     seen_names[name_val] = idx
 
+                # JSON-20 — NAME must match FIXATDL identifier pattern -------
+                if not _NAME_PATTERN.fullmatch(name_val):
+                    issues.append(_err(
+                        "JSON-20",
+                        f"'NAME' must be a valid FIXATDL identifier (letter "
+                        f"followed by letters, digits, or underscores); "
+                        f"got {name_val!r}",
+                        f"{param_path}.NAME",
+                    ))
+
         # JSON-13 — TYPE must be a recognised FIXATDL type -------------------
         if "TYPE" in param_body:
             type_val = param_body["TYPE"]
@@ -295,6 +333,16 @@ def validate_data(data: Any) -> list[ValidationIssue]:
                 else:
                     seen_tags[tag_val] = idx
 
+                # JSON-21 — warn if tag is in standard FIX range (1–4999) ---
+                if tag_val < 5000:
+                    issues.append(_warn(
+                        "JSON-21",
+                        f"'FIXTAGNUMBER' {tag_val} is in the standard FIX tag "
+                        f"range (1–4999); custom algo parameters should use "
+                        f"values ≥ 5000",
+                        f"{param_path}.FIXTAGNUMBER",
+                    ))
+
         # JSON-17 — DESCRIPTION must be a string (if present) ---------------
         if "DESCRIPTION" in param_body:
             desc_val = param_body["DESCRIPTION"]
@@ -306,7 +354,7 @@ def validate_data(data: Any) -> list[ValidationIssue]:
                     f"{param_path}.DESCRIPTION",
                 ))
 
-        # JSON-18 / JSON-19 — SUPPORTED_VALUES --------------------------------
+        # JSON-18 / JSON-19 / JSON-22 / JSON-23 / JSON-24 — SUPPORTED_VALUES -
         if "SUPPORTED_VALUES" in param_body:
             sv = param_body["SUPPORTED_VALUES"]
             if not isinstance(sv, list):
@@ -317,6 +365,7 @@ def validate_data(data: Any) -> list[ValidationIssue]:
                     f"{param_path}.SUPPORTED_VALUES",
                 ))
             else:
+                seen_sv: set[str] = set()
                 for sv_idx, sv_item in enumerate(sv):
                     sv_path = f"{param_path}.SUPPORTED_VALUES[{sv_idx}]"
                     if not isinstance(sv_item, str):
@@ -332,6 +381,51 @@ def validate_data(data: Any) -> list[ValidationIssue]:
                             "Each SUPPORTED_VALUES item must be a non-empty string",
                             sv_path,
                         ))
+                    else:
+                        # JSON-22 — uniqueness within parameter --------------
+                        if sv_item in seen_sv:
+                            issues.append(_err(
+                                "JSON-22",
+                                f"Duplicate SUPPORTED_VALUES entry {sv_item!r}",
+                                sv_path,
+                            ))
+                        else:
+                            seen_sv.add(sv_item)
+
+                # JSON-23 — Boolean_t must have 0 or 2 SUPPORTED_VALUES ------
+                param_type = param_body.get("TYPE")
+                if isinstance(param_type, str) and param_type == "Boolean_t":
+                    if len(sv) not in (0, 2):
+                        issues.append(_err(
+                            "JSON-23",
+                            f"'Boolean_t' SUPPORTED_VALUES must contain exactly "
+                            f"2 entries (true-wire and false-wire values), or be "
+                            f"omitted; got {len(sv)}",
+                            f"{param_path}.SUPPORTED_VALUES",
+                        ))
+
+                # JSON-24 — Char_t / MultipleCharValue_t: single-char values -
+                if isinstance(param_type, str) and param_type in (
+                    "Char_t", "MultipleCharValue_t"
+                ):
+                    for sv_idx, sv_item in enumerate(sv):
+                        if isinstance(sv_item, str) and sv_item and len(sv_item) != 1:
+                            issues.append(_err(
+                                "JSON-24",
+                                f"Each SUPPORTED_VALUES entry for '{param_type}' "
+                                f"must be a single character; got {sv_item!r} "
+                                f"(length {len(sv_item)})",
+                                f"{param_path}.SUPPORTED_VALUES[{sv_idx}]",
+                            ))
+
+        # JSON-25 — warn on unrecognised parameter body fields ---------------
+        for extra_key in param_body:
+            if extra_key not in _KNOWN_PARAM_FIELDS:
+                issues.append(_warn(
+                    "JSON-25",
+                    f"Unrecognised field '{extra_key}' in parameter body",
+                    f"{param_path}.{extra_key}",
+                ))
 
     return issues
 
