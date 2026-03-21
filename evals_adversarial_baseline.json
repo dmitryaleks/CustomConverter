@@ -1,0 +1,210 @@
+[
+  {
+    "file": "bad_enum_constraints.json",
+    "json_valid": false,
+    "xsd_valid": null,
+    "semantic_valid": null,
+    "errors": [
+      "[JSON-24] Each SUPPORTED_VALUES entry for 'Char_t' must be a single character; got 'BUY' (length 3)",
+      "[JSON-24] Each SUPPORTED_VALUES entry for 'Char_t' must be a single character; got 'SELL' (length 4)",
+      "[JSON-24] Each SUPPORTED_VALUES entry for 'Char_t' must be a single character; got 'SHORT' (length 5)",
+      "[JSON-23] 'Boolean_t' SUPPORTED_VALUES must contain exactly 2 entries (true-wire and false-wire values), or be omitted; got 1",
+      "[JSON-22] Duplicate SUPPORTED_VALUES entry 'DARK'",
+      "[JSON-24] Each SUPPORTED_VALUES entry for 'MultipleCharValue_t' must be a single character; got 'DARK' (length 4)",
+      "[JSON-24] Each SUPPORTED_VALUES entry for 'MultipleCharValue_t' must be a single character; got 'DARK' (length 4)",
+      "[JSON-24] Each SUPPORTED_VALUES entry for 'MultipleCharValue_t' must be a single character; got 'LIT' (length 3)"
+    ],
+    "warnings": [],
+    "parameters": [
+      {
+        "name": "Side",
+        "type": "Char_t"
+      },
+      {
+        "name": "AllowOddLots",
+        "type": "Boolean_t"
+      },
+      {
+        "name": "Venues",
+        "type": "MultipleCharValue_t"
+      }
+    ]
+  },
+  {
+    "file": "duplicate_parameters.json",
+    "json_valid": false,
+    "xsd_valid": null,
+    "semantic_valid": null,
+    "errors": [
+      "[JSON-15] Duplicate parameter NAME 'LimitPrice' (first seen at index 0)",
+      "[JSON-16] Duplicate FIXTAGNUMBER 5001 (first seen at index 0)"
+    ],
+    "warnings": [],
+    "parameters": [
+      {
+        "name": "LimitPrice",
+        "type": "Price_t"
+      },
+      {
+        "name": "LimitPrice",
+        "type": "Price_t"
+      }
+    ]
+  },
+  {
+    "file": "invalid_types.json",
+    "json_valid": false,
+    "xsd_valid": null,
+    "semantic_valid": null,
+    "errors": [
+      "[JSON-13] 'TYPE' value 'Double' is not a recognised FIXATDL 1.1 parameter type. Valid types: Amt_t, Boolean_t, Char_t, Country_t, Currency_t, Data_t, Exchange_t, Float_t, Int_t, Language_t, Length_t, LocalMktTime_t, Month-Year_t, MultipleCharValue_t, MultipleStringValue_t, NumInGroup_t, Numeric_t, Percentage_t, PriceOffset_t, Price_t, Qty_t, SeqNum_t, String_t, TagNum_t, UTCDate_t, UTCTimeOnly_t, UTCTimeStamp_t",
+      "[JSON-13] 'TYPE' value 'Integer' is not a recognised FIXATDL 1.1 parameter type. Valid types: Amt_t, Boolean_t, Char_t, Country_t, Currency_t, Data_t, Exchange_t, Float_t, Int_t, Language_t, Length_t, LocalMktTime_t, Month-Year_t, MultipleCharValue_t, MultipleStringValue_t, NumInGroup_t, Numeric_t, Percentage_t, PriceOffset_t, Price_t, Qty_t, SeqNum_t, String_t, TagNum_t, UTCDate_t, UTCTimeOnly_t, UTCTimeStamp_t",
+      "[JSON-13] 'TYPE' value 'DateTime' is not a recognised FIXATDL 1.1 parameter type. Valid types: Amt_t, Boolean_t, Char_t, Country_t, Currency_t, Data_t, Exchange_t, Float_t, Int_t, Language_t, Length_t, LocalMktTime_t, Month-Year_t, MultipleCharValue_t, MultipleStringValue_t, NumInGroup_t, Numeric_t, Percentage_t, PriceOffset_t, Price_t, Qty_t, SeqNum_t, String_t, TagNum_t, UTCDate_t, UTCTimeOnly_t, UTCTimeStamp_t"
+    ],
+    "warnings": [],
+    "parameters": [
+      {
+        "name": "LimitPrice",
+        "type": "Double"
+      },
+      {
+        "name": "Quantity",
+        "type": "Integer"
+      },
+      {
+        "name": "StartTime",
+        "type": "DateTime"
+      }
+    ]
+  },
+  {
+    "file": "malformed_names.json",
+    "json_valid": false,
+    "xsd_valid": null,
+    "semantic_valid": null,
+    "errors": [
+      "[JSON-20] 'NAME' must be a valid FIXATDL identifier (letter followed by letters, digits, or underscores); got '1StartTime'",
+      "[JSON-20] 'NAME' must be a valid FIXATDL identifier (letter followed by letters, digits, or underscores); got 'display-quantity'",
+      "[JSON-20] 'NAME' must be a valid FIXATDL identifier (letter followed by letters, digits, or underscores); got 'Min Fill Size'"
+    ],
+    "warnings": [],
+    "parameters": [
+      {
+        "name": "1StartTime",
+        "type": "UTCTimeStamp_t"
+      },
+      {
+        "name": "display-quantity",
+        "type": "Qty_t"
+      },
+      {
+        "name": "Min Fill Size",
+        "type": "Qty_t"
+      }
+    ]
+  },
+  {
+    "file": "missing_required_fields.json",
+    "json_valid": false,
+    "xsd_valid": null,
+    "semantic_valid": null,
+    "errors": [
+      "[JSON-09] Required field 'NAME' is missing",
+      "[JSON-10] Required field 'TYPE' is missing",
+      "[JSON-11] Required field 'FIXTAGNUMBER' is missing"
+    ],
+    "warnings": [],
+    "parameters": [
+      {
+        "name": "",
+        "type": "Percentage_t"
+      },
+      {
+        "name": "Style",
+        "type": ""
+      },
+      {
+        "name": "Limit",
+        "type": "Price_t"
+      }
+    ]
+  },
+  {
+    "file": "multi_error.json",
+    "json_valid": false,
+    "xsd_valid": null,
+    "semantic_valid": null,
+    "errors": [
+      "[JSON-20] 'NAME' must be a valid FIXATDL identifier (letter followed by letters, digits, or underscores); got '1bad-name'",
+      "[JSON-13] 'TYPE' value 'Widget_t' is not a recognised FIXATDL 1.1 parameter type. Valid types: Amt_t, Boolean_t, Char_t, Country_t, Currency_t, Data_t, Exchange_t, Float_t, Int_t, Language_t, Length_t, LocalMktTime_t, Month-Year_t, MultipleCharValue_t, MultipleStringValue_t, NumInGroup_t, Numeric_t, Percentage_t, PriceOffset_t, Price_t, Qty_t, SeqNum_t, String_t, TagNum_t, UTCDate_t, UTCTimeOnly_t, UTCTimeStamp_t",
+      "[JSON-22] Duplicate SUPPORTED_VALUES entry 'X'",
+      "[JSON-16] Duplicate FIXTAGNUMBER 44 (first seen at index 0)",
+      "[JSON-23] 'Boolean_t' SUPPORTED_VALUES must contain exactly 2 entries (true-wire and false-wire values), or be omitted; got 3"
+    ],
+    "warnings": [
+      "[JSON-21] 'FIXTAGNUMBER' 44 is in the standard FIX tag range (1\u20134999); custom algo parameters should use values \u2265 5000",
+      "[JSON-25] Unrecognised field 'EXTRA_FIELD' in parameter body",
+      "[JSON-21] 'FIXTAGNUMBER' 44 is in the standard FIX tag range (1\u20134999); custom algo parameters should use values \u2265 5000"
+    ],
+    "parameters": [
+      {
+        "name": "1bad-name",
+        "type": "Widget_t"
+      },
+      {
+        "name": "GoodName",
+        "type": "Boolean_t"
+      }
+    ]
+  },
+  {
+    "file": "unknown_extensions.json",
+    "json_valid": true,
+    "xsd_valid": true,
+    "semantic_valid": true,
+    "errors": [],
+    "warnings": [
+      "[JSON-25] Unrecognised field 'DEFAULT_VALUE' in parameter body",
+      "[JSON-25] Unrecognised field 'CATEGORY' in parameter body",
+      "[JSON-25] Unrecognised field 'DISPLAY_ORDER' in parameter body",
+      "[JSON-25] Unrecognised field 'DEFAULT_VALUE' in parameter body",
+      "[JSON-25] Unrecognised field 'DEPRECATED' in parameter body"
+    ],
+    "parameters": [
+      {
+        "name": "StartTime",
+        "type": "UTCTimeStamp_t"
+      },
+      {
+        "name": "EndTime",
+        "type": "UTCTimeStamp_t"
+      }
+    ]
+  },
+  {
+    "file": "wrong_fix_tag_range.json",
+    "json_valid": true,
+    "xsd_valid": true,
+    "semantic_valid": true,
+    "errors": [],
+    "warnings": [
+      "[JSON-21] 'FIXTAGNUMBER' 38 is in the standard FIX tag range (1\u20134999); custom algo parameters should use values \u2265 5000",
+      "[JSON-21] 'FIXTAGNUMBER' 44 is in the standard FIX tag range (1\u20134999); custom algo parameters should use values \u2265 5000",
+      "[JSON-21] 'FIXTAGNUMBER' 126 is in the standard FIX tag range (1\u20134999); custom algo parameters should use values \u2265 5000"
+    ],
+    "parameters": [
+      {
+        "name": "OrderQty",
+        "type": "Qty_t"
+      },
+      {
+        "name": "Price",
+        "type": "Price_t"
+      },
+      {
+        "name": "ExpireTime",
+        "type": "UTCTimeStamp_t"
+      }
+    ]
+  }
+]
