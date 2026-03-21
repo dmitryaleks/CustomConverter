@@ -1,0 +1,28 @@
+# Maps DSL XML structure → ParameterDef internal fields.
+#
+# Strategy name:
+#   "attribute:<name>"  — root element attribute
+#   "element:<name>"    — text of a direct child element
+[strategy]
+name = "attribute:name"
+
+# Parameter container and element local names
+[parameters]
+container = "Parameters"
+element   = "Parameter"
+
+# Field expressions (resolved against each <Parameter> element):
+#   "@attr"           — attribute on the element
+#   "ChildElem"       — text content of a direct child element
+#   "ChildElem/@attr" — attribute on a named child element
+[fields]
+name          = "@id"
+type          = "@dataType"
+fix_tag       = "@tag"
+default_value = "@default"
+description   = "Description"
+
+# Allowed values list
+[supported_values]
+container = "AllowedValues"
+item      = "Value"

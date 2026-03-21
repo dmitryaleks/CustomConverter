@@ -1,8 +1,8 @@
-"""CustomConverter CLI — converts a proprietary ATDL JSON to FIXATDL 1.1 XML.
+"""CustomConverter CLI — converts a proprietary ATDL JSON or XML DSL to FIXATDL 1.1 XML.
 
 Usage::
 
-    python main.py input.json output.xml [--validate]
+    python main.py input.json or input.xml output.xml [--validate]
                    [--provider-id ID] [--strategy-version VER]
                    [--strategy-identifier-tag TAG]
 
@@ -26,7 +26,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Convert proprietary ATDL JSON to FIXATDL 1.1 XML.",
     )
-    p.add_argument("input", type=Path, help="Path to the input JSON file")
+    p.add_argument("input", type=Path, help="Path to the input JSON or XML DSL file")
     p.add_argument("output", type=Path, help="Path for the output XML file")
     p.add_argument(
         "--validate",
@@ -75,9 +75,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    # --- Parse input JSON ---
+    # --- Parse input (JSON or XML DSL) ---
     try:
-        algo = parse_json(args.input)
+        if args.input.suffix.lower() == ".xml":
+            from source_converter.dsl_parser import parse_dsl
+            algo = parse_dsl(args.input)
+        else:
+            algo = parse_json(args.input)
     except (FileNotFoundError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2

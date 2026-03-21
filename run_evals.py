@@ -34,6 +34,7 @@ from converter.parser import parse_json
 from converter.builder import build_fixatdl
 from schema_validator.runner import validate as schema_validate
 from source_converter.type_mapper import TypeMapper
+from source_converter.dsl_parser import parse_dsl
 from source_converter.reporter import (
     format_dashboard,
     format_type_report,
@@ -72,6 +73,88 @@ def _extract_parameters(json_path: Path) -> list[dict]:
         return result
     except Exception:
         return []
+
+
+def _extract_parameters_xml(xml_path: Path) -> list[dict]:
+    """Return a flat list of {name, type} dicts from a DSL XML file.
+
+    Returns an empty list on any parse failure.
+    """
+    try:
+        algo = parse_dsl(xml_path)
+        return [{"name": p.name, "type": p.type} for p in algo.parameters]
+    except Exception:
+        return []
+
+
+def evaluate_dsl_file(xml_path: Path, schema_path: Path) -> dict:
+    """Run the conversion + schema validation pipeline on a single DSL XML file.
+
+    Skips JSON validation (sets ``json_valid=None``).
+
+    Returns a result dict with keys:
+        file, json_valid, xsd_valid, semantic_valid, errors, warnings, parameters
+    """
+    fname = xml_path.name
+    result: dict = {
+        "file": fname,
+        "json_valid": None,
+        "xsd_valid": None,
+        "semantic_valid": None,
+        "errors": [],
+        "warnings": [],
+        "parameters": _extract_parameters_xml(xml_path),
+    }
+
+    # ── Step 1: Parse DSL → FIXATDL XML (in-memory) ─────────────────────────
+    try:
+        algo = parse_dsl(xml_path)
+        xml_root = build_fixatdl(algo)
+        xml_bytes = etree.tostring(
+            xml_root,
+            pretty_print=True,
+            xml_declaration=True,
+            encoding="UTF-8",
+        )
+    except Exception as exc:
+        result["xsd_valid"] = False
+        result["semantic_valid"] = False
+        result["errors"].append(f"Conversion error: {exc}")
+        return result
+
+    # ── Step 2: Schema validation (phases 1-3) via temp file ─────────────────
+    try:
+        with tempfile.NamedTemporaryFile(
+            suffix=".xml", delete=False, dir=tempfile.gettempdir()
+        ) as tmp:
+            tmp.write(xml_bytes)
+            tmp_path = Path(tmp.name)
+
+        try:
+            val_result = schema_validate(tmp_path, schema_path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+        xsd_errors = [e for e in val_result.errors if e.phase == 1]
+        ref_errors = [e for e in val_result.errors if e.phase == 2]
+        sem_errors = [e for e in val_result.errors if e.phase == 3]
+        sem_warnings = list(val_result.warnings)
+
+        result["xsd_valid"] = len(xsd_errors) == 0
+        result["semantic_valid"] = len(ref_errors) + len(sem_errors) == 0
+
+        for e in val_result.errors:
+            prefix = {1: "XSD", 2: "REF", 3: "SEM"}.get(e.phase, "ERR")
+            result["errors"].append(f"[{prefix}:{e.rule_id}] {e.message}")
+        for w in sem_warnings:
+            result["warnings"].append(f"[SEM:{w.rule_id}] {w.message}")
+
+    except Exception as exc:
+        result["xsd_valid"] = False
+        result["semantic_valid"] = False
+        result["errors"].append(f"Schema validation error: {exc}")
+
+    return result
 
 
 def evaluate_file(json_path: Path, schema_path: Path) -> dict:
@@ -177,20 +260,22 @@ def run_batch(
     schema_path: Path,
     mapper: TypeMapper,
 ) -> list[dict]:
-    """Evaluate all *.json files in *json_dir* and return per-file results."""
+    """Evaluate all *.json and *.xml files in *json_dir* and return per-file results."""
     json_files = sorted(json_dir.glob("*.json"))
-    if not json_files:
+    xml_files  = sorted(json_dir.glob("*.xml"))
+    all_files  = sorted(json_files + xml_files, key=lambda p: p.name)
+    if not all_files:
         return []
 
     results = []
-    for jp in json_files:
+    for fp in all_files:
         # Feed each TYPE field through the mapper for coverage tracking
-        params = _extract_parameters(jp)
+        params = _extract_parameters_xml(fp) if fp.suffix == ".xml" else _extract_parameters(fp)
         for p in params:
             if p.get("type"):
                 mapper.map(p["type"])
 
-        result = evaluate_file(jp, schema_path)
+        result = evaluate_dsl_file(fp, schema_path) if fp.suffix == ".xml" else evaluate_file(fp, schema_path)
         results.append(result)
     return results
 
@@ -283,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
     include_warnings = args.warnings
 
     if not results:
-        print(f"No JSON files found in '{args.jsondir}'.")
+        print(f"No JSON or XML files found in '{args.jsondir}'.")
         return 0
 
     # ── Report A — dashboard ─────────────────────────────────────────────────
@@ -312,7 +397,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── Exit code ────────────────────────────────────────────────────────────
     all_passed = all(
-        r.get("json_valid") and r.get("xsd_valid") and r.get("semantic_valid")
+        r.get("json_valid") is not False
+        and r.get("xsd_valid")
+        and r.get("semantic_valid")
         for r in results
     )
     return 0 if all_passed else 1

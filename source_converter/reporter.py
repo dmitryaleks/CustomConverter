@@ -1,11 +1,12 @@
 """Reporter — format evaluation results into human-readable or JSON output.
 
-Four report types:
+Five report types:
 
-* :func:`format_dashboard`  — aggregate pass/fail table for a batch run
-* :func:`format_type_report` — per-parameter type mapping detail
-* :func:`format_coverage`   — which type_map entries were/weren't used
-* :func:`format_diff`       — regression / fix changelog vs a baseline run
+* :func:`format_dashboard`    — aggregate pass/fail table for a batch run
+* :func:`format_type_report`  — per-parameter type mapping detail
+* :func:`format_coverage`     — which type_map entries were/weren't used
+* :func:`format_diff`         — regression / fix changelog vs a baseline run
+* :func:`format_field_report` — DSL field mapping coverage (mapped/dropped/missing)
 """
 
 from __future__ import annotations
@@ -75,7 +76,8 @@ def format_dashboard(
         lines.append(
             f"{r['file']:<{col_w}}  {json_sym:^4}  {xsd_sym:^4}  {sem_sym:^8}"
         )
-        if r.get("json_valid") and r.get("xsd_valid") and r.get("semantic_valid"):
+        if (r.get("json_valid") is not False
+                and r.get("xsd_valid") and r.get("semantic_valid")):
             passed_all += 1
 
         errors = r.get("errors") or []
@@ -98,7 +100,8 @@ def format_dashboard(
 def _dashboard_summary(results: list[dict]) -> dict:
     passed = sum(
         1 for r in results
-        if r.get("json_valid") and r.get("xsd_valid") and r.get("semantic_valid")
+        if r.get("json_valid") is not False
+        and r.get("xsd_valid") and r.get("semantic_valid")
     )
     return {
         "total": len(results),
@@ -344,5 +347,69 @@ def format_diff(
 
     if not any([regressions, fixes, changed, new_files, removed_files]):
         lines.append("No changes — results identical to baseline.")
+
+    return "\n".join(lines) + "\n"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Report E — DSL field mapping coverage
+# ─────────────────────────────────────────────────────────────────────────────
+
+def format_field_report(
+    field_coverage: dict,
+    *,
+    fmt: str = "text",
+) -> str:
+    """Show DSL field mapping coverage (mapped / dropped / missing).
+
+    Args:
+        field_coverage: A dict with keys ``"mapped"``, ``"dropped"``,
+            ``"missing"`` — typically obtained via
+            ``dataclasses.asdict(coverage)`` where *coverage* is a
+            :class:`~source_converter.dsl_parser.FieldCoverage` instance.
+        fmt: ``"text"`` or ``"json"``.
+
+    Returns:
+        Formatted string.
+    """
+    if fmt == "json":
+        return json.dumps({"field_coverage": field_coverage}, indent=2)
+
+    mapped  = field_coverage.get("mapped", [])
+    dropped = field_coverage.get("dropped", [])
+    missing = field_coverage.get("missing", [])
+
+    lines = ["DSL field mapping coverage", "=" * 30, ""]
+
+    if mapped:
+        lines.append(f"Mapped ({len(mapped)} field assignments):")
+        col_d = max(len(m["dsl_attr"]) for m in mapped)
+        col_d = max(col_d, 8)
+        col_i = max(len(m["internal_field"]) for m in mapped)
+        col_i = max(col_i, 14)
+        for m in mapped:
+            lines.append(
+                f"  {m['dsl_attr']:<{col_d}}  →  {m['internal_field']:<{col_i}}  = {m['value']!r}"
+            )
+    else:
+        lines.append("Mapped: (none)")
+
+    lines.append("")
+
+    if dropped:
+        lines.append(f"Dropped DSL attributes not in field_map ({len(dropped)}):")
+        for attr in dropped:
+            lines.append(f"  {attr}")
+    else:
+        lines.append("Dropped: (none)")
+
+    lines.append("")
+
+    if missing:
+        lines.append(f"Missing optional fields (not present in any parameter) ({len(missing)}):")
+        for f_name in missing:
+            lines.append(f"  {f_name}")
+    else:
+        lines.append("Missing: (none — all field_map entries were populated)")
 
     return "\n".join(lines) + "\n"

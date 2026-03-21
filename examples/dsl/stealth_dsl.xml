@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AlgoDef xmlns="http://firm.example.com/algo-dsl/1.0" name="STEALTH">
+  <Parameters>
+    <Parameter id="StartTime" dataType="time" tag="6001" default="09:30:00">
+      <Description>Scheduled start time for algo execution window (UTC)</Description>
+    </Parameter>
+    <Parameter id="EndTime" dataType="time" tag="6002" default="16:00:00">
+      <Description>Scheduled end time for algo execution window (UTC)</Description>
+    </Parameter>
+    <Parameter id="Urgency" dataType="string" tag="6003" default="Medium">
+      <Description>Execution urgency level controlling aggressiveness</Description>
+      <AllowedValues>
+        <Value>Low</Value><Value>Medium</Value><Value>High</Value>
+      </AllowedValues>
+    </Parameter>
+    <Parameter id="VenueFocus" dataType="string" tag="6008" default="SmartRoute">
+      <Description>Preferred liquidity pool selection strategy</Description>
+      <AllowedValues>
+        <Value>DarkOnly</Value><Value>LitOnly</Value>
+        <Value>Mixed</Value><Value>SmartRoute</Value>
+      </AllowedValues>
+    </Parameter>
+    <Parameter id="AllowOddLots" dataType="boolean" tag="6009" default="false">
+      <Description>Allow odd-lot fills</Description>
+    </Parameter>
+    <Parameter id="MaxPctVolume" dataType="percent" tag="6010" default="15%">
+      <Description>Maximum participation rate as percentage of market volume</Description>
+    </Parameter>
+  </Parameters>
+</AlgoDef>
