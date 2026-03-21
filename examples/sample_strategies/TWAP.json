@@ -1,0 +1,47 @@
+{
+  "TWAP": {
+    "PARAMETERS": [
+      {
+        "StartTime": {
+          "NAME": "StartTime",
+          "DESCRIPTION": "Strategy start time (UTC)",
+          "TYPE": "UTCTimeOnly_t",
+          "FIXTAGNUMBER": 5001
+        }
+      },
+      {
+        "EndTime": {
+          "NAME": "EndTime",
+          "DESCRIPTION": "Strategy end time (UTC)",
+          "TYPE": "UTCTimeOnly_t",
+          "FIXTAGNUMBER": 5002
+        }
+      },
+      {
+        "SliceInterval": {
+          "NAME": "SliceInterval",
+          "DESCRIPTION": "Time interval between child order slices, in seconds",
+          "TYPE": "Int_t",
+          "FIXTAGNUMBER": 5003
+        }
+      },
+      {
+        "RandomiseSliceSize": {
+          "NAME": "RandomiseSliceSize",
+          "DESCRIPTION": "Randomise child order sizes around the average slice quantity",
+          "TYPE": "Boolean_t",
+          "FIXTAGNUMBER": 5004,
+          "SUPPORTED_VALUES": ["Y", "N"]
+        }
+      },
+      {
+        "LimitPrice": {
+          "NAME": "LimitPrice",
+          "DESCRIPTION": "Optional price cap on child orders",
+          "TYPE": "Price_t",
+          "FIXTAGNUMBER": 5005
+        }
+      }
+    ]
+  }
+}

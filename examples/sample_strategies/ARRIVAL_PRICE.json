@@ -1,0 +1,48 @@
+{
+  "ARRIVAL_PRICE": {
+    "PARAMETERS": [
+      {
+        "ArrivalPxOffset": {
+          "NAME": "ArrivalPxOffset",
+          "DESCRIPTION": "Offset from arrival price in basis points (positive = above, negative = below)",
+          "TYPE": "PriceOffset_t",
+          "FIXTAGNUMBER": 5001
+        }
+      },
+      {
+        "Urgency": {
+          "NAME": "Urgency",
+          "DESCRIPTION": "Controls the speed/risk trade-off when tracking arrival price",
+          "TYPE": "String_t",
+          "FIXTAGNUMBER": 5002,
+          "SUPPORTED_VALUES": ["Low", "Medium", "High", "VeryHigh"]
+        }
+      },
+      {
+        "MaxDeviation": {
+          "NAME": "MaxDeviation",
+          "DESCRIPTION": "Maximum allowed deviation from arrival price as a percentage",
+          "TYPE": "Percentage_t",
+          "FIXTAGNUMBER": 5003
+        }
+      },
+      {
+        "AllowMomentum": {
+          "NAME": "AllowMomentum",
+          "DESCRIPTION": "Allow momentum-based opportunistic fills beyond the arrival price",
+          "TYPE": "Boolean_t",
+          "FIXTAGNUMBER": 5004,
+          "SUPPORTED_VALUES": ["Y", "N"]
+        }
+      },
+      {
+        "Currency": {
+          "NAME": "Currency",
+          "DESCRIPTION": "Settlement currency for the order",
+          "TYPE": "Currency_t",
+          "FIXTAGNUMBER": 5005
+        }
+      }
+    ]
+  }
+}

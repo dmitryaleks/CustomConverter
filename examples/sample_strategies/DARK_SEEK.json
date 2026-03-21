@@ -1,0 +1,48 @@
+{
+  "DARK_SEEK": {
+    "PARAMETERS": [
+      {
+        "MinFillSize": {
+          "NAME": "MinFillSize",
+          "DESCRIPTION": "Minimum acceptable fill size",
+          "TYPE": "Qty_t",
+          "FIXTAGNUMBER": 5001
+        }
+      },
+      {
+        "MaxFillSize": {
+          "NAME": "MaxFillSize",
+          "DESCRIPTION": "Maximum acceptable fill size",
+          "TYPE": "Qty_t",
+          "FIXTAGNUMBER": 5002
+        }
+      },
+      {
+        "AggressionLevel": {
+          "NAME": "AggressionLevel",
+          "DESCRIPTION": "How aggressively to seek liquidity in dark pools",
+          "TYPE": "String_t",
+          "FIXTAGNUMBER": 5003,
+          "SUPPORTED_VALUES": ["Passive", "Neutral", "Aggressive"]
+        }
+      },
+      {
+        "AllowCross": {
+          "NAME": "AllowCross",
+          "DESCRIPTION": "Allow internal crossing of orders",
+          "TYPE": "Boolean_t",
+          "FIXTAGNUMBER": 5004,
+          "SUPPORTED_VALUES": ["Y", "N"]
+        }
+      },
+      {
+        "PriceImprovement": {
+          "NAME": "PriceImprovement",
+          "DESCRIPTION": "Minimum price improvement required over reference price, in basis points",
+          "TYPE": "Float_t",
+          "FIXTAGNUMBER": 5005
+        }
+      }
+    ]
+  }
+}

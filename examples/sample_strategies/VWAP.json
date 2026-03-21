@@ -1,0 +1,47 @@
+{
+  "VWAP": {
+    "PARAMETERS": [
+      {
+        "StartTime": {
+          "NAME": "StartTime",
+          "DESCRIPTION": "Strategy start time (UTC)",
+          "TYPE": "UTCTimeOnly_t",
+          "FIXTAGNUMBER": 5001
+        }
+      },
+      {
+        "EndTime": {
+          "NAME": "EndTime",
+          "DESCRIPTION": "Strategy end time (UTC)",
+          "TYPE": "UTCTimeOnly_t",
+          "FIXTAGNUMBER": 5002
+        }
+      },
+      {
+        "MaxParticipationRate": {
+          "NAME": "MaxParticipationRate",
+          "DESCRIPTION": "Maximum participation rate as a percentage of market volume",
+          "TYPE": "Percentage_t",
+          "FIXTAGNUMBER": 5003
+        }
+      },
+      {
+        "DisplayQuantity": {
+          "NAME": "DisplayQuantity",
+          "DESCRIPTION": "Quantity to display on the order book",
+          "TYPE": "Qty_t",
+          "FIXTAGNUMBER": 5004
+        }
+      },
+      {
+        "VenueInclusion": {
+          "NAME": "VenueInclusion",
+          "DESCRIPTION": "Which venues to include in execution",
+          "TYPE": "String_t",
+          "FIXTAGNUMBER": 5005,
+          "SUPPORTED_VALUES": ["DarkOnly", "LitOnly", "Mixed"]
+        }
+      }
+    ]
+  }
+}
