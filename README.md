@@ -1,6 +1,6 @@
 # CustomConverter
 
-Convert a proprietary ATDL JSON algorithm descriptor into valid **FIXATDL 1.1 XML**, then optionally validate the result against the official FIXATDL 1.1 XSD schemas.
+Convert a proprietary ATDL JSON algorithm descriptor into valid **FIXATDL 1.1 XML**, validate the descriptor before conversion, validate the output against the official FIXATDL 1.1 XSD schemas, and render strategies as interactive self-contained HTML pages.
 
 Three independent CLI tools are provided:
 
@@ -127,11 +127,11 @@ The JSON file must have exactly one top-level key — the algorithm name. Its va
 #### Supported TYPE values
 
 Any FIXATDL 1.1 parameter type:
-`String_t`, `MultipleCharValue_t`, `MultipleStringValue_t`, `Int_t`, `Float_t`,
-`Qty_t`, `Price_t`, `PriceOffset_t`, `Amt_t`, `Percentage_t`, `Boolean_t`,
-`Char_t`, `UTCTimestamp_t`, `UTCTimeOnly_t`, `LocalMktDate_t`, `MonthYear_t`,
-`Data_t`, `Country_t`, `Currency_t`, `Exchange_t`, `Language_t`, `TagNum_t`,
-`SeqNum_t`, `Length_t`, `NumInGroup_t`, `UTCDateOnly_t`, `LocalMktTime_t`.
+`Amt_t`, `Boolean_t`, `Char_t`, `Country_t`, `Currency_t`, `Data_t`,
+`Exchange_t`, `Float_t`, `Int_t`, `Language_t`, `Length_t`, `LocalMktTime_t`,
+`Month-Year_t`, `MultipleCharValue_t`, `MultipleStringValue_t`, `NumInGroup_t`,
+`Numeric_t`, `Percentage_t`, `Price_t`, `PriceOffset_t`, `Qty_t`, `SeqNum_t`,
+`String_t`, `TagNum_t`, `UTCDate_t`, `UTCTimeOnly_t`, `UTCTimeStamp_t`.
 
 ### Usage
 
@@ -528,6 +528,34 @@ Enforced automatically by `atdl-core-1-1.xsd` and its imports. Common failures:
 | SEM-14 | Error | `minLength` ≤ `maxLength` for string parameter types |
 | SEM-15 | Error | `increment` must be positive for `Slider_t` and `SingleSpinner_t` controls |
 | SEM-16 | Error | `Strategies@strategyIdentifierTag` must not match any `Parameter@fixTag` |
+
+---
+
+## Adversarial JSON Examples (`examples/adversarial/`)
+
+Eight JSON descriptor files in `examples/adversarial/` intentionally trigger
+specific validator rules. They serve as living documentation — each file is a
+realistic but broken descriptor that pinpoints exactly what a given rule catches.
+
+| File | Rules triggered | Description |
+|------|----------------|-------------|
+| `wrong_fix_tag_range.json` | JSON-21 (3× warning) | Standard FIX tags 38, 44, 126 used for algo parameters |
+| `malformed_names.json` | JSON-20 (3× error) | Names starting with a digit, containing a hyphen, containing spaces |
+| `duplicate_parameters.json` | JSON-15 + JSON-16 | Same `NAME` and `FIXTAGNUMBER` used in two parameters |
+| `bad_enum_constraints.json` | JSON-22 + JSON-23 + JSON-24 | Multi-char `Char_t` values; `Boolean_t` with 1 entry; duplicate `MultipleCharValue_t` entry |
+| `unknown_extensions.json` | JSON-25 (5× warning) | Extra non-standard fields from a different spec |
+| `missing_required_fields.json` | JSON-09 + JSON-10 + JSON-11 | One required field omitted per parameter |
+| `invalid_types.json` | JSON-13 (3× error) | Java/C# type names: `Double`, `Integer`, `DateTime` |
+| `multi_error.json` | JSON-13,16,20,21,22,23,25 | Two parameters hitting 7 distinct rule IDs |
+
+```bash
+# Run any adversarial file through the validator
+python validate_json.py examples/adversarial/wrong_fix_tag_range.json --warnings
+python validate_json.py examples/adversarial/multi_error.json --warnings
+
+# Get machine-readable output
+python validate_json.py examples/adversarial/invalid_types.json --format json
+```
 
 ---
 
