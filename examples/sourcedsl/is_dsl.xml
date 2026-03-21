@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Implementation Shortfall (IS) algorithm DSL definition.
+
+  IS minimises total execution cost by balancing market-impact (cost of
+  trading quickly) against timing-risk (cost of trading slowly while the
+  price moves against the order).  The risk-aversion parameter controls
+  where the algorithm sits on that efficient frontier.
+-->
+<AlgoDef xmlns="http://firm.example.com/algo-dsl/1.0" name="IS">
+  <Parameters>
+
+    <Parameter id="StartTime" dataType="time" tag="7001" default="09:30:00">
+      <Description>Scheduled start of the execution window (UTC)</Description>
+    </Parameter>
+
+    <Parameter id="EndTime" dataType="time" tag="7002" default="16:00:00">
+      <Description>Scheduled end of the execution window (UTC); must be after StartTime</Description>
+    </Parameter>
+
+    <Parameter id="RiskAversion" dataType="float" tag="7003" default="0.5">
+      <Description>Trade-off between market impact and timing risk (0 = pure impact minimisation, 1 = urgent/aggressive)</Description>
+    </Parameter>
+
+    <Parameter id="BenchmarkPrice" dataType="price" tag="7004">
+      <Description>Arrival price used as the IS benchmark; leave blank to use the mid-quote at order receipt</Description>
+    </Parameter>
+
+    <Parameter id="AlphaDecay" dataType="float" tag="7005" default="0.1">
+      <Description>Rate at which the alpha signal decays over the execution horizon (per minute, annualised units)</Description>
+    </Parameter>
+
+    <Parameter id="MaxParticipationRate" dataType="percent" tag="7006" default="20%">
+      <Description>Hard cap on the fraction of market volume the algo may consume</Description>
+    </Parameter>
+
+    <Parameter id="VenueScope" dataType="string" tag="7007" default="SmartRoute">
+      <Description>Liquidity pool selection strategy across lit and dark venues</Description>
+      <AllowedValues>
+        <Value>LitOnly</Value>
+        <Value>DarkOnly</Value>
+        <Value>SmartRoute</Value>
+        <Value>PrimaryOnly</Value>
+      </AllowedValues>
+    </Parameter>
+
+    <Parameter id="AllowIntraday" dataType="boolean" tag="7008" default="true">
+      <Description>Permit intraday scheduling adjustments in response to real-time alpha and volume signals</Description>
+    </Parameter>
+
+    <Parameter id="PostTradeAction" dataType="string" tag="7009" default="CancelRemainder">
+      <Description>Action taken when the execution window closes with residual quantity</Description>
+      <AllowedValues>
+        <Value>CancelRemainder</Value>
+        <Value>MarketOnClose</Value>
+        <Value>Rollover</Value>
+      </AllowedValues>
+    </Parameter>
+
+  </Parameters>
+</AlgoDef>

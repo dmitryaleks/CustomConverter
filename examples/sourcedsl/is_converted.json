@@ -1,0 +1,97 @@
+{
+  "IS": {
+    "PARAMETERS": [
+      {
+        "StartTime": {
+          "NAME": "StartTime",
+          "DESCRIPTION": "Scheduled start of the execution window (UTC)",
+          "TYPE": "UTCTimeOnly_t",
+          "FIXTAGNUMBER": 7001,
+          "DEFAULT_VALUE": "09:30:00"
+        }
+      },
+      {
+        "EndTime": {
+          "NAME": "EndTime",
+          "DESCRIPTION": "Scheduled end of the execution window (UTC); must be after StartTime",
+          "TYPE": "UTCTimeOnly_t",
+          "FIXTAGNUMBER": 7002,
+          "DEFAULT_VALUE": "16:00:00"
+        }
+      },
+      {
+        "RiskAversion": {
+          "NAME": "RiskAversion",
+          "DESCRIPTION": "Trade-off between market impact and timing risk (0 = pure impact minimisation, 1 = urgent/aggressive)",
+          "TYPE": "Float_t",
+          "FIXTAGNUMBER": 7003,
+          "DEFAULT_VALUE": "0.5"
+        }
+      },
+      {
+        "BenchmarkPrice": {
+          "NAME": "BenchmarkPrice",
+          "DESCRIPTION": "Arrival price used as the IS benchmark; leave blank to use the mid-quote at order receipt",
+          "TYPE": "Price_t",
+          "FIXTAGNUMBER": 7004
+        }
+      },
+      {
+        "AlphaDecay": {
+          "NAME": "AlphaDecay",
+          "DESCRIPTION": "Rate at which the alpha signal decays over the execution horizon (per minute, annualised units)",
+          "TYPE": "Float_t",
+          "FIXTAGNUMBER": 7005,
+          "DEFAULT_VALUE": "0.1"
+        }
+      },
+      {
+        "MaxParticipationRate": {
+          "NAME": "MaxParticipationRate",
+          "DESCRIPTION": "Hard cap on the fraction of market volume the algo may consume",
+          "TYPE": "Percentage_t",
+          "FIXTAGNUMBER": 7006,
+          "DEFAULT_VALUE": "20"
+        }
+      },
+      {
+        "VenueScope": {
+          "NAME": "VenueScope",
+          "DESCRIPTION": "Liquidity pool selection strategy across lit and dark venues",
+          "TYPE": "String_t",
+          "FIXTAGNUMBER": 7007,
+          "SUPPORTED_VALUES": [
+            "LitOnly",
+            "DarkOnly",
+            "SmartRoute",
+            "PrimaryOnly"
+          ],
+          "DEFAULT_VALUE": "SmartRoute"
+        }
+      },
+      {
+        "AllowIntraday": {
+          "NAME": "AllowIntraday",
+          "DESCRIPTION": "Permit intraday scheduling adjustments in response to real-time alpha and volume signals",
+          "TYPE": "Boolean_t",
+          "FIXTAGNUMBER": 7008,
+          "DEFAULT_VALUE": "true"
+        }
+      },
+      {
+        "PostTradeAction": {
+          "NAME": "PostTradeAction",
+          "DESCRIPTION": "Action taken when the execution window closes with residual quantity",
+          "TYPE": "String_t",
+          "FIXTAGNUMBER": 7009,
+          "SUPPORTED_VALUES": [
+            "CancelRemainder",
+            "MarketOnClose",
+            "Rollover"
+          ],
+          "DEFAULT_VALUE": "CancelRemainder"
+        }
+      }
+    ]
+  }
+}
