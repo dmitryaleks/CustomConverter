@@ -1,0 +1,24 @@
+# source_converter/type_map.toml
+#
+# Maps source-vocabulary type names → FIXATDL 1.1 parameter types.
+# Keys are case-insensitive at lookup time (TypeMapper normalises to lowercase).
+# Values must be members of converter.json_validator.VALID_TYPES.
+#
+# Extend this file as new source types are discovered in the pipeline.
+
+[types]
+price    = "Price_t"
+double   = "Float_t"
+float    = "Float_t"
+integer  = "Int_t"
+int      = "Int_t"
+string   = "String_t"
+boolean  = "Boolean_t"
+bool     = "Boolean_t"
+date     = "UTCDate_t"
+datetime = "UTCTimeStamp_t"
+time     = "UTCTimeOnly_t"
+qty      = "Qty_t"
+quantity = "Qty_t"
+char     = "Char_t"
+percent  = "Percentage_t"
