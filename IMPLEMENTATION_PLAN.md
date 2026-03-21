@@ -1,9 +1,8 @@
-# Implementation Plan — HTML Renderer
+# Implementation Plan — CustomConverter
 
-## Chapter 1 — Overview of Existing Implementation
+## Chapter 1 — Project Phases (all complete)
 
-Phases 1–7 are complete. The converter reads a proprietary JSON algo descriptor and
-produces a FIXATDL 1.1 XML file, optionally validated against the official XSD schema.
+All phases are complete. 228 tests pass across the full pipeline.
 
 | Phase | Module / File | Description | Status |
 |-------|--------------|-------------|--------|
@@ -12,8 +11,19 @@ produces a FIXATDL 1.1 XML file, optionally validated against the official XSD s
 | 3 | `converter/builder.py` | Data model → FIXATDL 1.1 XML (lxml) | ✅ Done |
 | 4 | `converter/validator.py` | XSD validation via lxml | ✅ Done |
 | 5 | `main.py` | CLI entrypoint (`argparse`) | ✅ Done |
-| 6 | `tests/` | 49 unit tests, all passing | ✅ Done |
+| 6 | `tests/` (initial) | 49 unit tests — parser, builder, validator | ✅ Done |
 | 7 | `PROJECT_PLAN.md` | Documentation update | ✅ Done |
+| 8 | `converter/renderer.py` | lxml XML tree → self-contained HTML page | ✅ Done |
+| 9 | `main.py --html` | CLI `--html` flag wires in renderer | ✅ Done |
+| 10 | `tests/test_renderer.py` | 17 renderer tests | ✅ Done |
+| 11 | `schema_validator/` | Standalone 3-phase ATDL XML validator | ✅ Done |
+| 12 | `validate_schema.py` | Schema validator CLI (`--phases`, `--format`, `--warnings`) | ✅ Done |
+| 13 | `tests/test_phase{1,2,3}.py` | 58 schema validator tests (REF-01..07, SEM-01..16) | ✅ Done |
+| 14 | `converter/json_validator.py` | JSON descriptor validator — 25 rules (JSON-01..25) | ✅ Done |
+| 15 | `validate_json.py` | JSON validator CLI (`--format`, `--warnings`, `--quiet`) | ✅ Done |
+| 16 | `tests/test_json_validator.py` | 86 JSON validator tests | ✅ Done |
+| 17 | `examples/adversarial/` | 8 adversarial JSON files, one per rule group | ✅ Done |
+| 18 | `tests/test_adversarial_examples.py` | 18 disk-based adversarial example tests | ✅ Done |
 
 The generated XML contains only Core-namespace elements (`Strategy`, `Parameter`,
 `EnumPair`). There are no `StrategyLayout` / `StrategyPanel` / control elements from
@@ -216,7 +226,7 @@ CustomConverter/
 
 ---
 
-## Chapter 6 — Verification
+## Chapter 6 — HTML Renderer Verification
 
 ```bash
 # 1. Convert and render
@@ -226,14 +236,121 @@ python main.py sample.json output.xml --html output.html
 start output.html    # Windows
 open output.html     # macOS
 
-# 3. Run full test suite (should include new renderer tests)
+# 3. Run full test suite
 python -m pytest tests/ -v
 
 # 4. Confirm HTML is self-contained (no network requests)
 # Use browser DevTools → Network tab → reload → 0 external requests
 ```
 
-Expected test counts after implementation:
-- Existing: 49 converter tests + 58 schema-validator tests = 107 passing
-- New: ≥ 10 renderer tests
-- Total: ≥ 117 passing
+---
+
+## Chapter 7 — JSON Descriptor Validator (`converter/json_validator.py`)
+
+### 7.1 Purpose
+
+Validate a proprietary ATDL JSON algo descriptor before conversion. Catches structural
+problems, wrong types, semantic violations, and type-specific constraints with clear rule
+IDs and JSON paths, so errors are fixed at the source rather than surfacing as cryptic
+XML build failures.
+
+### 7.2 Public API
+
+```python
+# converter/json_validator.py
+def validate_data(data: Any) -> list[ValidationIssue]: ...
+def validate_json(path: str | Path) -> list[ValidationIssue]: ...
+```
+
+`validate_data` accepts an already-parsed value. `validate_json` loads the file from
+disk, raises `FileNotFoundError` / `ValueError` on I/O or parse errors, then delegates
+to `validate_data`.
+
+### 7.3 Rules Reference
+
+| Rule | Severity | Check |
+|------|----------|-------|
+| JSON-01 | Error | Root must be a JSON object |
+| JSON-02 | Error | Root object must have exactly one key (the algo name) |
+| JSON-03 | Error | Algo name must be a non-empty string |
+| JSON-04 | Error | Algo value must be a JSON object containing a `PARAMETERS` key |
+| JSON-05 | Error | `PARAMETERS` must be a JSON array |
+| JSON-06 | Error | `PARAMETERS` array must not be empty |
+| JSON-07 | Error | Each entry in `PARAMETERS` must be a single-key JSON object |
+| JSON-08 | Error | The parameter body must be a JSON object |
+| JSON-09 | Error | `NAME` field is required |
+| JSON-10 | Error | `TYPE` field is required |
+| JSON-11 | Error | `FIXTAGNUMBER` field is required |
+| JSON-12 | Error | `NAME` must be a non-empty string |
+| JSON-13 | Error | `TYPE` must be a recognised FIXATDL 1.1 parameter type |
+| JSON-14 | Error | `FIXTAGNUMBER` must be a positive integer |
+| JSON-15 | Error | `NAME` values must be unique within the strategy |
+| JSON-16 | Error | `FIXTAGNUMBER` values must be unique within the strategy |
+| JSON-17 | Error | `DESCRIPTION`, if present, must be a string |
+| JSON-18 | Error | `SUPPORTED_VALUES`, if present, must be a JSON array |
+| JSON-19 | Error | Each `SUPPORTED_VALUES` item must be a non-empty string |
+| JSON-20 | Error | `NAME` must match `[A-Za-z][A-Za-z0-9_]*` |
+| JSON-21 | Warning | `FIXTAGNUMBER` in the standard FIX range 1–4999 |
+| JSON-22 | Error | `SUPPORTED_VALUES` items must be unique within a parameter |
+| JSON-23 | Error | `Boolean_t` must have 0 or exactly 2 `SUPPORTED_VALUES` entries |
+| JSON-24 | Error | `Char_t` / `MultipleCharValue_t` entries must be single characters |
+| JSON-25 | Warning | Unrecognised fields in a parameter body |
+
+### 7.4 CLI (`validate_json.py`)
+
+```
+python validate_json.py FILE [--format text|json] [--warnings] [--quiet]
+```
+
+Exit codes: `0` = valid, `1` = errors found, `2` = file/JSON error.
+
+### 7.5 Tests
+
+`tests/test_json_validator.py` — 86 tests covering all 25 rules, file-based loading,
+and the CLI (exit codes, `--format json`, `--warnings`, `--quiet`).
+
+---
+
+## Chapter 8 — Adversarial JSON Examples (`examples/adversarial/`)
+
+### 8.1 Purpose
+
+Eight realistic JSON algo descriptor files that each intentionally trigger specific
+validator rules. They serve as living documentation — readable by humans, executable
+as tests — showing precisely which input patterns each rule catches.
+
+### 8.2 File Inventory
+
+| File | Rules triggered | Notes |
+|------|----------------|-------|
+| `wrong_fix_tag_range.json` | 3× JSON-21 (warning) | VWAP algo using FIX tags 38, 44, 126 |
+| `malformed_names.json` | 3× JSON-20 (error) | Names starting with digit, containing hyphen, containing spaces |
+| `duplicate_parameters.json` | JSON-15 + JSON-16 | Same NAME and FIXTAGNUMBER used twice |
+| `bad_enum_constraints.json` | JSON-22 + JSON-23 + JSON-24 | Multi-char Char_t values; Boolean_t with 1 entry; duplicate MultipleCharValue_t entry |
+| `unknown_extensions.json` | 5× JSON-25 (warning) | 3 unknown fields on StartTime, 2 on EndTime |
+| `missing_required_fields.json` | JSON-09 + JSON-10 + JSON-11 | One required field omitted per parameter |
+| `invalid_types.json` | 3× JSON-13 (error) | Java/C# type names: `Double`, `Integer`, `DateTime` |
+| `multi_error.json` | JSON-13,16,20,21,22,23,25 | Two parameters hitting 7 distinct rule IDs |
+
+### 8.3 Tests (`tests/test_adversarial_examples.py`)
+
+18 tests in `TestAdversarialExamples`. Each test calls `validate_json(path)` with the
+file loaded from disk and asserts on rule ID presence, exact counts, message content,
+or severity mix.
+
+---
+
+## Chapter 9 — Current Test Inventory
+
+```
+tests/test_parser.py                14 tests — JSON parsing, error cases
+tests/test_builder.py               26 tests — XML structure, attributes, EnumPairs
+tests/test_validator.py              5 tests — XSD validation pass/fail
+tests/test_phase1.py                 8 tests — structural checks (Phase 1 XSD)
+tests/test_phase2.py                25 tests — referential integrity (REF-01..07)
+tests/test_phase3.py                25 tests — semantic rules (SEM-01..16)
+tests/test_renderer.py              17 tests — HTML control mapping, CLI --html flag
+tests/test_json_validator.py        86 tests — JSON-01..25, file-based, CLI
+tests/test_adversarial_examples.py  18 tests — disk-based adversarial JSON examples
+─────────────────────────────────────────────────────────────────────────────────
+Total                              228 tests — all passing
