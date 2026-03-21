@@ -1,0 +1,30 @@
+{
+  "SNIPER": {
+    "PARAMETERS": [
+      {
+        "LimitPrice": {
+          "NAME": "LimitPrice",
+          "DESCRIPTION": "Limit price — Java/C# 'Double' is not a valid FIXATDL 1.1 type (use Price_t)",
+          "TYPE": "Double",
+          "FIXTAGNUMBER": 5001
+        }
+      },
+      {
+        "Quantity": {
+          "NAME": "Quantity",
+          "DESCRIPTION": "Order quantity — Java 'Integer' is not a valid FIXATDL 1.1 type (use Int_t or Qty_t)",
+          "TYPE": "Integer",
+          "FIXTAGNUMBER": 5002
+        }
+      },
+      {
+        "StartTime": {
+          "NAME": "StartTime",
+          "DESCRIPTION": "Start time — .NET 'DateTime' is not a valid FIXATDL 1.1 type (use UTCTimeStamp_t)",
+          "TYPE": "DateTime",
+          "FIXTAGNUMBER": 5003
+        }
+      }
+    ]
+  }
+}

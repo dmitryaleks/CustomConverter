@@ -1,0 +1,30 @@
+{
+  "ICEBERG": {
+    "PARAMETERS": [
+      {
+        "StartTime": {
+          "NAME": "1StartTime",
+          "DESCRIPTION": "Algo start time — bad NAME: starts with a digit (JSON-20)",
+          "TYPE": "UTCTimeStamp_t",
+          "FIXTAGNUMBER": 5001
+        }
+      },
+      {
+        "DisplayQty": {
+          "NAME": "display-quantity",
+          "DESCRIPTION": "Display quantity — bad NAME: contains a hyphen (JSON-20)",
+          "TYPE": "Qty_t",
+          "FIXTAGNUMBER": 5002
+        }
+      },
+      {
+        "MinFillSize": {
+          "NAME": "Min Fill Size",
+          "DESCRIPTION": "Minimum fill size — bad NAME: contains spaces (JSON-20)",
+          "TYPE": "Qty_t",
+          "FIXTAGNUMBER": 5003
+        }
+      }
+    ]
+  }
+}

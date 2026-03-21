@@ -53,9 +53,19 @@ CustomConverter/
 │   ├── atdl-flow-1-1.xsd
 │   ├── atdl-regions-1-1.xsd
 │   └── atdl-timezones-1-1.xsd
+├── examples/
+│   └── adversarial/
+│       ├── wrong_fix_tag_range.json     # JSON-21: standard FIX tags used for algo params
+│       ├── malformed_names.json         # JSON-20: invalid FIXATDL identifier names
+│       ├── duplicate_parameters.json    # JSON-15/16: duplicate NAME and FIXTAGNUMBER
+│       ├── bad_enum_constraints.json    # JSON-22/23/24: enum constraint violations
+│       ├── unknown_extensions.json      # JSON-25: unrecognised parameter fields
+│       ├── missing_required_fields.json # JSON-09/10/11: missing required fields
+│       ├── invalid_types.json           # JSON-13: Java/.NET type names instead of FIXATDL
+│       └── multi_error.json             # Multi-rule: JSON-13,16,20,21,22,23,25
 └── tests/
     ├── fixtures/
-    │   └── valid_full.xml        # Valid ATDL document exercising all sub-schemas
+    │   └── valid_full.xml               # Valid ATDL document exercising all sub-schemas
     ├── test_parser.py
     ├── test_builder.py
     ├── test_validator.py
@@ -63,7 +73,8 @@ CustomConverter/
     ├── test_phase2.py
     ├── test_phase3.py
     ├── test_renderer.py
-    └── test_json_validator.py
+    ├── test_json_validator.py
+    └── test_adversarial_examples.py
 ```
 
 ---
@@ -526,17 +537,18 @@ Enforced automatically by `atdl-core-1-1.xsd` and its imports. Common failures:
 python -m pytest tests/ -v
 ```
 
-210 tests cover the full pipeline — JSON validation, conversion, XSD validation, and HTML rendering.
+228 tests cover the full pipeline — JSON validation, conversion, XSD validation, and HTML rendering.
 
 ```
-tests/test_parser.py           14 tests — JSON parsing, error cases
-tests/test_builder.py          26 tests — XML structure, attributes, EnumPairs
-tests/test_validator.py         5 tests — XSD validation pass/fail
-tests/test_phase1.py            8 tests — structural checks
-tests/test_phase2.py           25 tests — REF-01..07
-tests/test_phase3.py           25 tests — SEM-01..16
-tests/test_renderer.py         17 tests — HTML control mapping, CLI --html flag
-tests/test_json_validator.py   86 tests — JSON-01..25, file-based, CLI
+tests/test_parser.py                14 tests — JSON parsing, error cases
+tests/test_builder.py               26 tests — XML structure, attributes, EnumPairs
+tests/test_validator.py              5 tests — XSD validation pass/fail
+tests/test_phase1.py                 8 tests — structural checks
+tests/test_phase2.py                25 tests — REF-01..07
+tests/test_phase3.py                25 tests — SEM-01..16
+tests/test_renderer.py              17 tests — HTML control mapping, CLI --html flag
+tests/test_json_validator.py        86 tests — JSON-01..25, file-based, CLI
+tests/test_adversarial_examples.py  18 tests — disk-based adversarial JSON examples
 ```
 
 ---

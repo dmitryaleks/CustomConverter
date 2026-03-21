@@ -1,0 +1,22 @@
+{
+  "ARRIVAL_PRICE": {
+    "PARAMETERS": [
+      {
+        "LimitPrice": {
+          "NAME": "LimitPrice",
+          "DESCRIPTION": "Limit price (first occurrence)",
+          "TYPE": "Price_t",
+          "FIXTAGNUMBER": 5001
+        }
+      },
+      {
+        "LimitPrice": {
+          "NAME": "LimitPrice",
+          "DESCRIPTION": "Limit price (copy-paste error — duplicate NAME and FIXTAGNUMBER trigger JSON-15 and JSON-16)",
+          "TYPE": "Price_t",
+          "FIXTAGNUMBER": 5001
+        }
+      }
+    ]
+  }
+}

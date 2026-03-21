@@ -1,0 +1,30 @@
+{
+  "VWAP": {
+    "PARAMETERS": [
+      {
+        "OrderQty": {
+          "NAME": "OrderQty",
+          "DESCRIPTION": "Order quantity — uses standard FIX tag 38 (should be >= 5000 for custom algo params)",
+          "TYPE": "Qty_t",
+          "FIXTAGNUMBER": 38
+        }
+      },
+      {
+        "Price": {
+          "NAME": "Price",
+          "DESCRIPTION": "Limit price — uses standard FIX tag 44 (should be >= 5000 for custom algo params)",
+          "TYPE": "Price_t",
+          "FIXTAGNUMBER": 44
+        }
+      },
+      {
+        "ExpireTime": {
+          "NAME": "ExpireTime",
+          "DESCRIPTION": "Order expiry — uses standard FIX tag 126 (should be >= 5000 for custom algo params)",
+          "TYPE": "UTCTimeStamp_t",
+          "FIXTAGNUMBER": 126
+        }
+      }
+    ]
+  }
+}

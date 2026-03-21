@@ -1,0 +1,25 @@
+{
+  "BROKEN_ALGO": {
+    "PARAMETERS": [
+      {
+        "P1": {
+          "NAME": "1bad-name",
+          "DESCRIPTION": "P1 hits: JSON-20 (bad name), JSON-13 (unknown type), JSON-21 (std FIX tag), JSON-25 (extra field), JSON-22 (duplicate enum)",
+          "TYPE": "Widget_t",
+          "FIXTAGNUMBER": 44,
+          "EXTRA_FIELD": "should not be here",
+          "SUPPORTED_VALUES": ["X", "X"]
+        }
+      },
+      {
+        "P2": {
+          "NAME": "GoodName",
+          "DESCRIPTION": "P2 hits: JSON-16 (duplicate tag 44), JSON-21 (std FIX tag), JSON-23 (Boolean_t with 3 entries)",
+          "TYPE": "Boolean_t",
+          "FIXTAGNUMBER": 44,
+          "SUPPORTED_VALUES": ["Y", "N", "MAYBE"]
+        }
+      }
+    ]
+  }
+}

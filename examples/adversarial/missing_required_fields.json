@@ -1,0 +1,27 @@
+{
+  "PCTV": {
+    "PARAMETERS": [
+      {
+        "RATE": {
+          "DESCRIPTION": "Participation rate — NAME field omitted (JSON-09)",
+          "TYPE": "Percentage_t",
+          "FIXTAGNUMBER": 5001
+        }
+      },
+      {
+        "STYLE": {
+          "NAME": "Style",
+          "DESCRIPTION": "Participation style — TYPE field omitted (JSON-10)",
+          "FIXTAGNUMBER": 5002
+        }
+      },
+      {
+        "LIMIT": {
+          "NAME": "Limit",
+          "DESCRIPTION": "Limit price — FIXTAGNUMBER field omitted (JSON-11)",
+          "TYPE": "Price_t"
+        }
+      }
+    ]
+  }
+}

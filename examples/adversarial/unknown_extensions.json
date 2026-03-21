@@ -1,0 +1,27 @@
+{
+  "SCHEDULE": {
+    "PARAMETERS": [
+      {
+        "StartTime": {
+          "NAME": "StartTime",
+          "DESCRIPTION": "Algorithm start time",
+          "TYPE": "UTCTimeStamp_t",
+          "FIXTAGNUMBER": 5001,
+          "DEFAULT_VALUE": "09:30:00",
+          "CATEGORY": "Timing",
+          "DISPLAY_ORDER": 1
+        }
+      },
+      {
+        "EndTime": {
+          "NAME": "EndTime",
+          "DESCRIPTION": "Algorithm end time",
+          "TYPE": "UTCTimeStamp_t",
+          "FIXTAGNUMBER": 5002,
+          "DEFAULT_VALUE": "16:00:00",
+          "DEPRECATED": true
+        }
+      }
+    ]
+  }
+}
