@@ -136,13 +136,13 @@ button[type=reset]:hover { background: #ddd; }
         <legend>STEALTH</legend>
       <div class="field-group">
         <label for="StartTime">StartTime</label>
-        <div class="control-wrap"><input data-fix-tag="6001" type="time" id="StartTime" name="StartTime"></div>
+        <div class="control-wrap"><input data-fix-tag="6001" type="time" id="StartTime" name="StartTime" value="09:30:00"></div>
         <span class="description">Scheduled start time for algo execution window (UTC)</span>
         <span class="field-error" id="StartTime-error" aria-live="polite"></span>
       </div>
       <div class="field-group">
         <label for="EndTime">EndTime</label>
-        <div class="control-wrap"><input data-fix-tag="6002" type="time" id="EndTime" name="EndTime"></div>
+        <div class="control-wrap"><input data-fix-tag="6002" type="time" id="EndTime" name="EndTime" value="16:00:00"></div>
         <span class="description">Scheduled end time for algo execution window (UTC); must be after StartTime</span>
         <span class="field-error" id="EndTime-error" aria-live="polite"></span>
       </div>
@@ -166,7 +166,7 @@ button[type=reset]:hover { background: #ddd; }
       </div>
       <div class="field-group">
         <label for="MaxParticipationRate">MaxParticipationRate</label>
-        <div class="control-wrap"><input data-fix-tag="6006" type="number" id="MaxParticipationRate" name="MaxParticipationRate" min="0" max="100"> <span class="unit">%</span></div>
+        <div class="control-wrap"><input data-fix-tag="6006" type="number" id="MaxParticipationRate" name="MaxParticipationRate" min="0" max="100" value="10"> <span class="unit">%</span></div>
         <span class="description">Maximum fraction of market volume the algo may consume (e.g. 0.10 = 10%)</span>
         <span class="field-error" id="MaxParticipationRate-error" aria-live="polite"></span>
       </div>
@@ -176,7 +176,7 @@ button[type=reset]:hover { background: #ddd; }
             <option value="">-- select --</option>
             <option value="Bullish" data-enum-id="Bullish">Bullish</option>
             <option value="Bearish" data-enum-id="Bearish">Bearish</option>
-            <option value="Neutral" data-enum-id="Neutral">Neutral</option>
+            <option value="Neutral" data-enum-id="Neutral" selected>Neutral</option>
           </select></div>
         <span class="description">Market sentiment bias used to skew intraday participation-rate curve</span>
         <span class="field-error" id="Sentiment-error" aria-live="polite"></span>
@@ -188,7 +188,7 @@ button[type=reset]:hover { background: #ddd; }
             <option value="DarkOnly" data-enum-id="DarkOnly">DarkOnly</option>
             <option value="LitOnly" data-enum-id="LitOnly">LitOnly</option>
             <option value="Mixed" data-enum-id="Mixed">Mixed</option>
-            <option value="SmartRoute" data-enum-id="SmartRoute">SmartRoute</option>
+            <option value="SmartRoute" data-enum-id="SmartRoute" selected>SmartRoute</option>
           </select></div>
         <span class="description">Preferred liquidity pool selection strategy across lit and dark venues</span>
         <span class="field-error" id="VenueFocus-error" aria-live="polite"></span>
@@ -204,7 +204,7 @@ button[type=reset]:hover { background: #ddd; }
         <div class="control-wrap"><select data-fix-tag="6010" id="PostTradeAction" name="PostTradeAction">
             <option value="">-- select --</option>
             <option value="ReportOnly" data-enum-id="ReportOnly">ReportOnly</option>
-            <option value="CancelRemainder" data-enum-id="CancelRemainder">CancelRemainder</option>
+            <option value="CancelRemainder" data-enum-id="CancelRemainder" selected>CancelRemainder</option>
             <option value="MarketOnClose" data-enum-id="MarketOnClose">MarketOnClose</option>
             <option value="Rollover" data-enum-id="Rollover">Rollover</option>
           </select></div>

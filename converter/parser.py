@@ -14,6 +14,7 @@ class ParameterDef:
     type: str                    # FIX type string, e.g. "String_t"
     fix_tag: int
     supported_values: list[str] = field(default_factory=list)
+    default_value: str | None = None
 
 
 @dataclass
@@ -35,7 +36,8 @@ def parse_json(path: str | Path) -> AlgoDef:
                   "DESCRIPTION": "...",
                   "TYPE": "String_t",
                   "FIXTAGNUMBER": 5001,
-                  "SUPPORTED_VALUES": ["A", "B"]
+                  "SUPPORTED_VALUES": ["A", "B"],
+                  "DEFAULT_VALUE": "A"
                 }
               }
             ]
@@ -90,6 +92,7 @@ def parse_json(path: str | Path) -> AlgoDef:
                 type=param_body["TYPE"],
                 fix_tag=int(param_body["FIXTAGNUMBER"]),
                 supported_values=list(param_body.get("SUPPORTED_VALUES") or []),
+                default_value=param_body.get("DEFAULT_VALUE") or None,
             )
         )
 

@@ -720,3 +720,45 @@ class TestJSON25:
         ]}}), encoding="utf-8")
         # Only warnings → exit 0
         assert main([str(f)]) == 0
+
+
+# ---------------------------------------------------------------------------
+# JSON-26 — DEFAULT_VALUE, if present, must be a non-empty string
+# ---------------------------------------------------------------------------
+
+def _p26(dv=None, include=True) -> dict:
+    body: dict = {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001}
+    if include:
+        body["DEFAULT_VALUE"] = dv
+    return {"MyAlgo": {"PARAMETERS": [{"P": body}]}}
+
+
+class TestJSON26:
+    def test_absent_gives_no_error(self):
+        issues = validate_data(_p26(include=False))
+        assert "JSON-26" not in _rule_ids(issues)
+
+    def test_valid_string_no_error(self):
+        issues = validate_data(_p26("MKT"))
+        assert "JSON-26" not in _rule_ids(issues)
+
+    def test_integer_fails(self):
+        issues = validate_data(_p26(42))
+        assert "JSON-26" in _rule_ids(issues)
+
+    def test_boolean_fails(self):
+        issues = validate_data(_p26(True))
+        assert "JSON-26" in _rule_ids(issues)
+
+    def test_empty_string_fails(self):
+        issues = validate_data(_p26(""))
+        assert "JSON-26" in _rule_ids(issues)
+
+    def test_not_a_json25_warning(self):
+        issues = validate_data(_p26("X"))
+        assert "JSON-25" not in _rule_ids(issues)
+
+    def test_severity_is_error(self):
+        issues = validate_data(_p26(99))
+        errs = [i for i in issues if i.rule_id == "JSON-26"]
+        assert errs and errs[0].severity == "error"

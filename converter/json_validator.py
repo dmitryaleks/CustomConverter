@@ -31,6 +31,7 @@ JSON-23  For "Boolean_t" parameters, "SUPPORTED_VALUES" must be absent or
 JSON-24  For "Char_t" and "MultipleCharValue_t" parameters, each
          "SUPPORTED_VALUES" entry must be a single character.
 JSON-25  Unrecognised fields in a parameter body produce a warning.
+JSON-26  "DEFAULT_VALUE", if present, must be a non-empty string.
 """
 
 from __future__ import annotations
@@ -82,6 +83,7 @@ _KNOWN_PARAM_FIELDS: frozenset[str] = frozenset({
     "FIXTAGNUMBER",
     "DESCRIPTION",
     "SUPPORTED_VALUES",
+    "DEFAULT_VALUE",
 })
 
 # Pattern for a valid FIXATDL parameter identifier (JSON-20).
@@ -417,6 +419,22 @@ def validate_data(data: Any) -> list[ValidationIssue]:
                                 f"(length {len(sv_item)})",
                                 f"{param_path}.SUPPORTED_VALUES[{sv_idx}]",
                             ))
+
+        # JSON-26 — DEFAULT_VALUE, if present, must be a non-empty string -----
+        if "DEFAULT_VALUE" in param_body:
+            dv = param_body["DEFAULT_VALUE"]
+            if not isinstance(dv, str):
+                issues.append(_err(
+                    "JSON-26",
+                    f"'DEFAULT_VALUE' must be a string; got {type(dv).__name__}",
+                    f"{param_path}.DEFAULT_VALUE",
+                ))
+            elif not dv:
+                issues.append(_err(
+                    "JSON-26",
+                    "'DEFAULT_VALUE' must be a non-empty string",
+                    f"{param_path}.DEFAULT_VALUE",
+                ))
 
         # JSON-25 — warn on unrecognised parameter body fields ---------------
         for extra_key in param_body:

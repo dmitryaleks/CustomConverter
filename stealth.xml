@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
   <Strategy name="STEALTH" uiRep="STEALTH" wireValue="STEALTH" fixMsgType="D" providerID="CustomProvider" version="1">
     <!-- StartTime: Scheduled start time for algo execution window (UTC) -->
     <Parameter name="StartTime" xsi:type="core:UTCTimeOnly_t" fixTag="6001" mutableOnCxlRpl="true"/>
@@ -35,5 +35,33 @@
       <EnumPair enumID="MarketOnClose" wireValue="MarketOnClose"/>
       <EnumPair enumID="Rollover" wireValue="Rollover"/>
     </Parameter>
+    <lay:StrategyLayout>
+      <lay:StrategyPanel>
+        <lay:Control ID="StartTime" xsi:type="lay:Clock_t" parameterRef="StartTime" label="StartTime" initValue="09:30:00"/>
+        <lay:Control ID="EndTime" xsi:type="lay:Clock_t" parameterRef="EndTime" label="EndTime" initValue="16:00:00"/>
+        <lay:Control ID="TargetPrice" xsi:type="lay:SingleSpinner_t" parameterRef="TargetPrice" label="TargetPrice"/>
+        <lay:Control ID="DisplayQuantity" xsi:type="lay:SingleSpinner_t" parameterRef="DisplayQuantity" label="DisplayQuantity"/>
+        <lay:Control ID="MinFillSize" xsi:type="lay:SingleSpinner_t" parameterRef="MinFillSize" label="MinFillSize"/>
+        <lay:Control ID="MaxParticipationRate" xsi:type="lay:SingleSpinner_t" parameterRef="MaxParticipationRate" label="MaxParticipationRate" initValue="10"/>
+        <lay:Control ID="Sentiment" xsi:type="lay:DropDownList_t" parameterRef="Sentiment" label="Sentiment" initValue="Neutral">
+          <lay:ListItem enumID="Bullish" uiRep="Bullish"/>
+          <lay:ListItem enumID="Bearish" uiRep="Bearish"/>
+          <lay:ListItem enumID="Neutral" uiRep="Neutral"/>
+        </lay:Control>
+        <lay:Control ID="VenueFocus" xsi:type="lay:DropDownList_t" parameterRef="VenueFocus" label="VenueFocus" initValue="SmartRoute">
+          <lay:ListItem enumID="DarkOnly" uiRep="DarkOnly"/>
+          <lay:ListItem enumID="LitOnly" uiRep="LitOnly"/>
+          <lay:ListItem enumID="Mixed" uiRep="Mixed"/>
+          <lay:ListItem enumID="SmartRoute" uiRep="SmartRoute"/>
+        </lay:Control>
+        <lay:Control ID="AllowOddLots" xsi:type="lay:CheckBox_t" parameterRef="AllowOddLots" label="AllowOddLots" initValue="false"/>
+        <lay:Control ID="PostTradeAction" xsi:type="lay:DropDownList_t" parameterRef="PostTradeAction" label="PostTradeAction" initValue="CancelRemainder">
+          <lay:ListItem enumID="ReportOnly" uiRep="ReportOnly"/>
+          <lay:ListItem enumID="CancelRemainder" uiRep="CancelRemainder"/>
+          <lay:ListItem enumID="MarketOnClose" uiRep="MarketOnClose"/>
+          <lay:ListItem enumID="Rollover" uiRep="Rollover"/>
+        </lay:Control>
+      </lay:StrategyPanel>
+    </lay:StrategyLayout>
   </Strategy>
 </Strategies>

@@ -93,13 +93,15 @@ class TestAdversarialExamples:
         assert any(i.rule_id == "JSON-22" for i in issues)
 
     # ------------------------------------------------------------------
-    # unknown_extensions.json  →  5× JSON-25 warnings, 0 errors
+    # unknown_extensions.json  →  3× JSON-25 warnings, 0 errors
+    # (DEFAULT_VALUE is now a known field; CATEGORY, DISPLAY_ORDER,
+    # DEPRECATED remain unknown)
     # ------------------------------------------------------------------
 
-    def test_unknown_extensions_five_warnings(self):
+    def test_unknown_extensions_three_warnings(self):
         issues = validate_json(ADVERSARIAL / "unknown_extensions.json")
         warnings_25 = [i for i in issues if i.rule_id == "JSON-25"]
-        assert len(warnings_25) == 5
+        assert len(warnings_25) == 3
 
     def test_unknown_extensions_no_errors(self):
         issues = validate_json(ADVERSARIAL / "unknown_extensions.json")

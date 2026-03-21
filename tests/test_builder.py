@@ -7,6 +7,7 @@ from lxml import etree
 
 from converter.builder import (
     CORE_NS,
+    LAY_NS,
     XSI_NS,
     _sanitize_enum_id,
     build_fixatdl,
@@ -233,3 +234,176 @@ class TestWriteFixatdl:
         out = tmp_path / "sub" / "dir" / "out.xml"
         write_fixatdl(root, out)
         assert out.exists()
+
+
+# ---------------------------------------------------------------------------
+# StrategyLayout generation
+# ---------------------------------------------------------------------------
+
+def _lqname(local):
+    return f"{{{LAY_NS}}}{local}"
+
+
+def _make_param(name="p", type_="String_t", tag=5001, sv=None, default=None):
+    return ParameterDef(
+        name=name,
+        description="",
+        type=type_,
+        fix_tag=tag,
+        supported_values=sv if sv is not None else [],
+        default_value=default,
+    )
+
+
+def _get_strategy(root):
+    return root.find(_qname("Strategy"))
+
+
+class TestStrategyLayout:
+    # --- Backward compatibility ------------------------------------------------
+
+    def test_no_layout_when_no_defaults(self):
+        algo = AlgoDef("A", [_make_param(default=None)])
+        root = build_fixatdl(algo)
+        assert _get_strategy(root).find(_lqname("StrategyLayout")) is None
+
+    # --- StrategyLayout structure ---------------------------------------------
+
+    def test_layout_present_when_any_default(self):
+        algo = AlgoDef("A", [_make_param(default="X")])
+        root = build_fixatdl(algo)
+        assert _get_strategy(root).find(_lqname("StrategyLayout")) is not None
+
+    def test_layout_has_one_strategy_panel(self):
+        algo = AlgoDef("A", [_make_param(default="X")])
+        root = build_fixatdl(algo)
+        layout = _get_strategy(root).find(_lqname("StrategyLayout"))
+        assert len(layout.findall(_lqname("StrategyPanel"))) == 1
+
+    def test_all_params_get_control_even_without_default(self):
+        algo = AlgoDef("A", [
+            _make_param(name="p1", tag=5001, default="X"),
+            _make_param(name="p2", tag=5002, default=None),
+        ])
+        root = build_fixatdl(algo)
+        panel = _get_strategy(root).find(f".//{_lqname('StrategyPanel')}")
+        assert len(panel.findall(_lqname("Control"))) == 2
+
+    def test_layout_comes_after_parameters(self):
+        algo = AlgoDef("A", [_make_param(default="v")])
+        root = build_fixatdl(algo)
+        strat = _get_strategy(root)
+        children = list(strat)
+        param_idx = next(i for i, c in enumerate(children)
+                         if c.tag == _qname("Parameter"))
+        layout_idx = next(i for i, c in enumerate(children)
+                          if c.tag == _lqname("StrategyLayout"))
+        assert layout_idx > param_idx
+
+    # --- Control attributes ---------------------------------------------------
+
+    def test_control_id_equals_param_name(self):
+        algo = AlgoDef("A", [_make_param(name="MyP", default="v")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get("ID") == "MyP"
+
+    def test_control_parameter_ref_equals_param_name(self):
+        algo = AlgoDef("A", [_make_param(name="MyP", default="v")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get("parameterRef") == "MyP"
+
+    def test_control_without_default_has_no_init_value(self):
+        algo = AlgoDef("A", [
+            _make_param(name="p1", tag=5001, default="X"),
+            _make_param(name="p2", tag=5002, default=None),
+        ])
+        root = build_fixatdl(algo)
+        panel = _get_strategy(root).find(f".//{_lqname('StrategyPanel')}")
+        p2_ctrl = next(c for c in panel.findall(_lqname("Control"))
+                       if c.get("ID") == "p2")
+        assert p2_ctrl.get("initValue") is None
+
+    # --- Control type mapping -------------------------------------------------
+
+    def test_string_t_no_sv_maps_to_text_field(self):
+        algo = AlgoDef("A", [_make_param(type_="String_t", sv=[], default="hi")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get(f"{{{XSI_NS}}}type") == "lay:TextField_t"
+
+    def test_supported_values_maps_to_dropdown(self):
+        algo = AlgoDef("A", [_make_param(type_="String_t", sv=["A", "B"], default="A")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get(f"{{{XSI_NS}}}type") == "lay:DropDownList_t"
+
+    def test_boolean_t_maps_to_checkbox(self):
+        algo = AlgoDef("A", [_make_param(type_="Boolean_t", default="true")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get(f"{{{XSI_NS}}}type") == "lay:CheckBox_t"
+
+    def test_int_t_maps_to_single_spinner(self):
+        algo = AlgoDef("A", [_make_param(type_="Int_t", default="5")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get(f"{{{XSI_NS}}}type") == "lay:SingleSpinner_t"
+
+    def test_float_t_maps_to_single_spinner(self):
+        algo = AlgoDef("A", [_make_param(type_="Float_t", default="1.5")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get(f"{{{XSI_NS}}}type") == "lay:SingleSpinner_t"
+
+    def test_utctimeonly_t_maps_to_clock(self):
+        algo = AlgoDef("A", [_make_param(type_="UTCTimeOnly_t", default="09:30:00")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get(f"{{{XSI_NS}}}type") == "lay:Clock_t"
+
+    # --- initValue correctness ------------------------------------------------
+
+    def test_text_field_init_value_is_raw_string(self):
+        algo = AlgoDef("A", [_make_param(type_="String_t", default="hello")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get("initValue") == "hello"
+
+    def test_dropdown_init_value_is_enum_id_for_numeric_wire(self):
+        # wireValue "1" → enumID "e_1" via _sanitize_enum_id
+        algo = AlgoDef("A", [_make_param(type_="String_t", sv=["1", "2"], default="1")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get("initValue") == "e_1"
+
+    def test_dropdown_init_value_letter_wire_value_unchanged(self):
+        algo = AlgoDef("A", [_make_param(type_="String_t", sv=["MKT", "LMT"], default="MKT")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get("initValue") == "MKT"
+
+    def test_checkbox_init_value_is_raw_string(self):
+        algo = AlgoDef("A", [_make_param(type_="Boolean_t", default="true")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get("initValue") == "true"
+
+    # --- DropDownList ListItem children ---------------------------------------
+
+    def test_dropdown_has_correct_list_item_count(self):
+        algo = AlgoDef("A", [_make_param(type_="String_t", sv=["A", "B"], default="A")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert len(ctrl.findall(_lqname("ListItem"))) == 2
+
+    def test_dropdown_list_item_attributes(self):
+        algo = AlgoDef("A", [_make_param(type_="String_t", sv=["MKT", "LMT"], default="MKT")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        items = ctrl.findall(_lqname("ListItem"))
+        assert items[0].get("enumID") == "MKT"
+        assert items[0].get("uiRep") == "MKT"
+        assert items[1].get("enumID") == "LMT"
+        assert items[1].get("uiRep") == "LMT"

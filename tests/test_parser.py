@@ -170,3 +170,37 @@ class TestParseJsonErrors:
         path = _write_json(data, tmp_path)
         with pytest.raises(ValueError, match="TYPE"):
             parse_json(path)
+
+
+# ---------------------------------------------------------------------------
+# DEFAULT_VALUE parsing
+# ---------------------------------------------------------------------------
+
+class TestParseJsonDefaultValue:
+    def test_absent_gives_none(self, tmp_path):
+        data = {"A": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001}}
+        ]}}
+        path = _write_json(data, tmp_path)
+        algo = parse_json(path)
+        assert algo.parameters[0].default_value is None
+
+    def test_present_is_stored(self, tmp_path):
+        data = {"A": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                   "DEFAULT_VALUE": "MKT"}}
+        ]}}
+        path = _write_json(data, tmp_path)
+        algo = parse_json(path)
+        assert algo.parameters[0].default_value == "MKT"
+
+    def test_partial_defaults(self, tmp_path):
+        data = {"A": {"PARAMETERS": [
+            {"P1": {"NAME": "p1", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                    "DEFAULT_VALUE": "X"}},
+            {"P2": {"NAME": "p2", "TYPE": "Int_t", "FIXTAGNUMBER": 5002}},
+        ]}}
+        path = _write_json(data, tmp_path)
+        algo = parse_json(path)
+        assert algo.parameters[0].default_value == "X"
+        assert algo.parameters[1].default_value is None

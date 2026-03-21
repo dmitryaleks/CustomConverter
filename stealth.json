@@ -6,7 +6,8 @@
           "NAME": "StartTime",
           "DESCRIPTION": "Scheduled start time for algo execution window (UTC)",
           "TYPE": "UTCTimeOnly_t",
-          "FIXTAGNUMBER": 6001
+          "FIXTAGNUMBER": 6001,
+          "DEFAULT_VALUE": "09:30:00"
         }
       },
       {
@@ -14,7 +15,8 @@
           "NAME": "EndTime",
           "DESCRIPTION": "Scheduled end time for algo execution window (UTC); must be after StartTime",
           "TYPE": "UTCTimeOnly_t",
-          "FIXTAGNUMBER": 6002
+          "FIXTAGNUMBER": 6002,
+          "DEFAULT_VALUE": "16:00:00"
         }
       },
       {
@@ -46,7 +48,8 @@
           "NAME": "MaxParticipationRate",
           "DESCRIPTION": "Maximum fraction of market volume the algo may consume (e.g. 0.10 = 10%)",
           "TYPE": "Percentage_t",
-          "FIXTAGNUMBER": 6006
+          "FIXTAGNUMBER": 6006,
+          "DEFAULT_VALUE": "10"
         }
       },
       {
@@ -55,7 +58,8 @@
           "DESCRIPTION": "Market sentiment bias used to skew intraday participation-rate curve",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 6007,
-          "SUPPORTED_VALUES": ["Bullish", "Bearish", "Neutral"]
+          "SUPPORTED_VALUES": ["Bullish", "Bearish", "Neutral"],
+          "DEFAULT_VALUE": "Neutral"
         }
       },
       {
@@ -64,7 +68,8 @@
           "DESCRIPTION": "Preferred liquidity pool selection strategy across lit and dark venues",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 6008,
-          "SUPPORTED_VALUES": ["DarkOnly", "LitOnly", "Mixed", "SmartRoute"]
+          "SUPPORTED_VALUES": ["DarkOnly", "LitOnly", "Mixed", "SmartRoute"],
+          "DEFAULT_VALUE": "SmartRoute"
         }
       },
       {
@@ -72,7 +77,8 @@
           "NAME": "AllowOddLots",
           "DESCRIPTION": "When enabled, the algo may submit and accept odd-lot fills to improve completion rate",
           "TYPE": "Boolean_t",
-          "FIXTAGNUMBER": 6009
+          "FIXTAGNUMBER": 6009,
+          "DEFAULT_VALUE": "false"
         }
       },
       {
@@ -81,7 +87,8 @@
           "DESCRIPTION": "Action taken when the execution window closes or the order is fully filled",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 6010,
-          "SUPPORTED_VALUES": ["ReportOnly", "CancelRemainder", "MarketOnClose", "Rollover"]
+          "SUPPORTED_VALUES": ["ReportOnly", "CancelRemainder", "MarketOnClose", "Rollover"],
+          "DEFAULT_VALUE": "CancelRemainder"
         }
       }
     ]

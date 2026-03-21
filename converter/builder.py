@@ -12,11 +12,13 @@ from .parser import AlgoDef, ParameterDef
 # Namespaces
 CORE_NS = "http://www.fixprotocol.org/ATDL-1-1/Core"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
+LAY_NS = "http://www.fixprotocol.org/ATDL-1-1/Layout"
 
 NSMAP = {
     None: CORE_NS,          # default namespace
     "xsi": XSI_NS,
     "core": CORE_NS,
+    "lay": LAY_NS,
 }
 
 _VALID_ENUM_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,255}$")
@@ -39,6 +41,35 @@ def _sanitize_enum_id(value: str) -> str:
 
 def _qname(local: str) -> str:
     return f"{{{CORE_NS}}}{local}"
+
+
+def _lqname(local: str) -> str:
+    return f"{{{LAY_NS}}}{local}"
+
+
+# Control type helpers -------------------------------------------------------
+
+_SPINNER_TYPES: frozenset[str] = frozenset({
+    "Int_t", "Length_t", "SeqNum_t", "NumInGroup_t", "TagNum_t",
+    "Float_t", "Qty_t", "Price_t", "PriceOffset_t", "Amt_t",
+    "Numeric_t", "Percentage_t",
+})
+_CLOCK_TYPES: frozenset[str] = frozenset({
+    "UTCTimeOnly_t", "LocalMktTime_t",
+})
+
+
+def _control_type(param: ParameterDef) -> str:
+    """Return the lay xsi:type string for a parameter's UI control."""
+    if param.supported_values:
+        return "DropDownList_t"
+    if param.type == "Boolean_t":
+        return "CheckBox_t"
+    if param.type in _SPINNER_TYPES:
+        return "SingleSpinner_t"
+    if param.type in _CLOCK_TYPES:
+        return "Clock_t"
+    return "TextField_t"
 
 
 def build_fixatdl(
@@ -77,6 +108,9 @@ def build_fixatdl(
     for param in algo.parameters:
         _add_parameter(strategy, param)
 
+    if any(p.default_value is not None for p in algo.parameters):
+        _add_strategy_layout(strategy, algo.parameters)
+
     return root
 
 
@@ -98,6 +132,33 @@ def _add_parameter(parent: etree._Element, param: ParameterDef) -> None:
         enum_pair = etree.SubElement(elem, _qname("EnumPair"))
         enum_pair.set("enumID", enum_id)
         enum_pair.set("wireValue", wire_value)
+
+
+def _add_strategy_layout(strategy: etree._Element, params: list[ParameterDef]) -> None:
+    """Append a ``<lay:StrategyLayout>`` with one panel and one Control per parameter."""
+    layout = etree.SubElement(strategy, _lqname("StrategyLayout"))
+    panel = etree.SubElement(layout, _lqname("StrategyPanel"))
+
+    for param in params:
+        ctrl_type = _control_type(param)
+        ctrl = etree.SubElement(panel, _lqname("Control"))
+        ctrl.set("ID", param.name)
+        ctrl.set(f"{{{XSI_NS}}}type", f"lay:{ctrl_type}")
+        ctrl.set("parameterRef", param.name)
+        ctrl.set("label", param.name)
+
+        if ctrl_type == "DropDownList_t":
+            for wire_value in param.supported_values:
+                enum_id = _sanitize_enum_id(wire_value)
+                item = etree.SubElement(ctrl, _lqname("ListItem"))
+                item.set("enumID", enum_id)
+                item.set("uiRep", wire_value)
+
+        if param.default_value is not None:
+            if ctrl_type == "DropDownList_t":
+                ctrl.set("initValue", _sanitize_enum_id(param.default_value))
+            else:
+                ctrl.set("initValue", param.default_value)
 
 
 def write_fixatdl(root: etree._Element, output_path: str | Path) -> None:

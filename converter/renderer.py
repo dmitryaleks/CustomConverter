@@ -9,10 +9,13 @@ from lxml import etree
 
 CORE_NS = "http://www.fixprotocol.org/ATDL-1-1/Core"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
+LAY_NS = "http://www.fixprotocol.org/ATDL-1-1/Layout"
 
 _STRATEGY_TAG = f"{{{CORE_NS}}}Strategy"
 _PARAM_TAG = f"{{{CORE_NS}}}Parameter"
 _ENUM_PAIR_TAG = f"{{{CORE_NS}}}EnumPair"
+_LAYOUT_TAG = f"{{{LAY_NS}}}StrategyLayout"
+_CONTROL_TAG = f"{{{LAY_NS}}}Control"
 
 _INT_TYPES = {"Int_t", "SeqNum_t", "Length_t", "NumInGroup_t", "TagNum_t"}
 _FLOAT_TYPES = {"Float_t", "Qty_t", "Price_t", "PriceOffset_t", "Amt_t", "Numeric_t"}
@@ -317,11 +320,26 @@ def _get_description(param_elem: etree._Element) -> str:
     return ""
 
 
+def _get_init_values(strategy_elem: etree._Element) -> dict[str, str]:
+    """Return {parameterRef: initValue} from the StrategyLayout, if present."""
+    result: dict[str, str] = {}
+    for child in strategy_elem:
+        if child.tag == _LAYOUT_TAG:
+            for ctrl in child.iter(_CONTROL_TAG):
+                ref = ctrl.get("parameterRef")
+                iv = ctrl.get("initValue")
+                if ref and iv is not None:
+                    result[ref] = iv
+            break
+    return result
+
+
 def _build_control(
     name: str,
     xsi_type: str,
     enum_pairs: list[tuple[str, str]],
     param_elem: etree._Element,
+    init_value: str | None = None,
 ) -> str:
     """Return an HTML control string for the given parameter element."""
     bare = _bare_type(xsi_type)
@@ -341,13 +359,21 @@ def _build_control(
     # Any type with EnumPair children → <select>
     if enum_pairs:
         multiple_attr = " multiple" if bare in _MULTI_TYPES else ""
+        # initValue for a DropDownList is an enumID; find the matching wireValue
+        selected_wire = None
+        if init_value is not None:
+            for enum_id, wire_val in enum_pairs:
+                if enum_id == init_value:
+                    selected_wire = wire_val
+                    break
         options = ['<option value="">-- select --</option>']
         for enum_id, wire_val in enum_pairs:
             esc_id = html.escape(enum_id, quote=True)
             esc_wv = html.escape(wire_val, quote=True)
             esc_wv_text = html.escape(wire_val)
+            selected_attr = " selected" if wire_val == selected_wire else ""
             options.append(
-                f'<option value="{esc_wv}" data-enum-id="{esc_id}">'
+                f'<option value="{esc_wv}" data-enum-id="{esc_id}"{selected_attr}>'
                 f"{esc_wv_text}</option>"
             )
         opts_html = "\n            ".join(options)
@@ -360,13 +386,15 @@ def _build_control(
 
     # --- Type-based mapping ---
 
+    val_attr = f' value="{html.escape(init_value, quote=True)}"' if init_value is not None else ""
+
     if bare == "String_t":
         max_len = param_elem.get("maxLength", "")
         min_len = param_elem.get("minLength", "")
         extra = f' maxlength="{html.escape(max_len, quote=True)}"' if max_len else ""
         extra += f' minlength="{html.escape(min_len, quote=True)}"' if min_len else ""
         return (
-            f'<input type="text" id="{esc_name}" name="{esc_name}"{extra}{req_attr}>'
+            f'<input type="text" id="{esc_name}" name="{esc_name}"{extra}{val_attr}{req_attr}>'
         )
 
     if bare in _INT_TYPES:
@@ -376,7 +404,7 @@ def _build_control(
         extra += f' max="{html.escape(max_val, quote=True)}"' if max_val else ""
         return (
             f'<input type="number" step="1" id="{esc_name}"'
-            f' name="{esc_name}"{extra}{req_attr}>'
+            f' name="{esc_name}"{extra}{val_attr}{req_attr}>'
         )
 
     if bare in _FLOAT_TYPES:
@@ -395,7 +423,7 @@ def _build_control(
         extra += f' max="{html.escape(max_val, quote=True)}"' if max_val else ""
         return (
             f'<input type="number" step="{step}" id="{esc_name}"'
-            f' name="{esc_name}"{extra}{req_attr}>'
+            f' name="{esc_name}"{extra}{val_attr}{req_attr}>'
         )
 
     if bare == "Percentage_t":
@@ -404,13 +432,13 @@ def _build_control(
         suffix = '<span class="unit">%</span>'
         return (
             f'<input type="number" id="{esc_name}" name="{esc_name}"'
-            f' min="0" max="{max_v}"{req_attr}> {suffix}'
+            f' min="0" max="{max_v}"{val_attr}{req_attr}> {suffix}'
         )
 
     if bare == "Char_t":
         return (
             f'<input type="text" maxlength="1" id="{esc_name}"'
-            f' name="{esc_name}"{req_attr}>'
+            f' name="{esc_name}"{val_attr}{req_attr}>'
         )
 
     if bare == "Boolean_t":
@@ -418,43 +446,45 @@ def _build_control(
         false_val = param_elem.get("falseWireValue", "N")
         esc_tv = html.escape(true_val, quote=True)
         esc_fv = html.escape(false_val, quote=True)
+        checked_attr = " checked" if init_value and init_value.lower() in ("true", "y", "1") else ""
         return (
             f'<input type="checkbox" id="{esc_name}" name="{esc_name}"'
-            f' data-true-value="{esc_tv}" data-false-value="{esc_fv}">'
+            f' data-true-value="{esc_tv}" data-false-value="{esc_fv}"{checked_attr}>'
         )
 
     if bare == "Currency_t":
         return (
             f'<input type="text" maxlength="3" pattern="[A-Z]{{3}}"'
-            f' id="{esc_name}" name="{esc_name}"{req_attr}>'
+            f' id="{esc_name}" name="{esc_name}"{val_attr}{req_attr}>'
         )
 
     if bare == "Exchange_t":
         return (
             f'<input type="text" maxlength="4" id="{esc_name}"'
-            f' name="{esc_name}"{req_attr}>'
+            f' name="{esc_name}"{val_attr}{req_attr}>'
         )
 
     if bare == "Month-Year_t":
-        return f'<input type="month" id="{esc_name}" name="{esc_name}"{req_attr}>'
+        return f'<input type="month" id="{esc_name}" name="{esc_name}"{val_attr}{req_attr}>'
 
     if bare == "UTCTimeStamp_t":
         return (
             f'<input type="datetime-local" id="{esc_name}"'
-            f' name="{esc_name}"{req_attr}>'
+            f' name="{esc_name}"{val_attr}{req_attr}>'
         )
 
     if bare in ("UTCTimeOnly_t", "LocalMktTime_t"):
-        return f'<input type="time" id="{esc_name}" name="{esc_name}"{req_attr}>'
+        return f'<input type="time" id="{esc_name}" name="{esc_name}"{val_attr}{req_attr}>'
 
     if bare == "UTCDate_t":
-        return f'<input type="date" id="{esc_name}" name="{esc_name}"{req_attr}>'
+        return f'<input type="date" id="{esc_name}" name="{esc_name}"{val_attr}{req_attr}>'
 
     if bare == "Data_t":
-        return f'<textarea id="{esc_name}" name="{esc_name}"{req_attr}></textarea>'
+        inner = html.escape(init_value) if init_value is not None else ""
+        return f'<textarea id="{esc_name}" name="{esc_name}"{req_attr}>{inner}</textarea>'
 
     # Fallback for unknown types
-    return f'<input type="text" id="{esc_name}" name="{esc_name}"{req_attr}>'
+    return f'<input type="text" id="{esc_name}" name="{esc_name}"{val_attr}{req_attr}>'
 
 
 def _render_strategy(strategy_elem: etree._Element, strategy_index: int) -> str:
@@ -477,6 +507,8 @@ def _render_strategy(strategy_elem: etree._Element, strategy_index: int) -> str:
             meta_parts.append(f"Strategy Identifier Tag: {html.escape(sit)}")
     meta_html = " | ".join(meta_parts)
 
+    init_values = _get_init_values(strategy_elem)
+
     field_groups: list[str] = []
     for child in strategy_elem:
         if child.tag != _PARAM_TAG:
@@ -489,7 +521,10 @@ def _render_strategy(strategy_elem: etree._Element, strategy_index: int) -> str:
         fix_tag = child.get("fixTag", "")
         esc_pname = html.escape(param_name, quote=True)
         esc_pname_text = html.escape(param_name)
-        control_html = _build_control(param_name, xsi_type, enum_pairs, child)
+        control_html = _build_control(
+            param_name, xsi_type, enum_pairs, child,
+            init_value=init_values.get(param_name),
+        )
 
         # Inject data-fix-tag onto the root control element so JS can read it
         if fix_tag:

@@ -6,7 +6,8 @@
           "NAME": "StartTime",
           "DESCRIPTION": "Strategy start time (UTC)",
           "TYPE": "UTCTimeOnly_t",
-          "FIXTAGNUMBER": 5001
+          "FIXTAGNUMBER": 5001,
+          "DEFAULT_VALUE": "09:30:00"
         }
       },
       {
@@ -14,7 +15,8 @@
           "NAME": "EndTime",
           "DESCRIPTION": "Strategy end time (UTC)",
           "TYPE": "UTCTimeOnly_t",
-          "FIXTAGNUMBER": 5002
+          "FIXTAGNUMBER": 5002,
+          "DEFAULT_VALUE": "16:00:00"
         }
       },
       {
@@ -22,7 +24,8 @@
           "NAME": "MaxParticipationRate",
           "DESCRIPTION": "Maximum participation rate as a percentage of market volume",
           "TYPE": "Percentage_t",
-          "FIXTAGNUMBER": 5003
+          "FIXTAGNUMBER": 5003,
+          "DEFAULT_VALUE": "10"
         }
       },
       {
@@ -39,7 +42,8 @@
           "DESCRIPTION": "Which venues to include in execution",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 5005,
-          "SUPPORTED_VALUES": ["DarkOnly", "LitOnly", "Mixed"]
+          "SUPPORTED_VALUES": ["DarkOnly", "LitOnly", "Mixed"],
+          "DEFAULT_VALUE": "Mixed"
         }
       }
     ]
