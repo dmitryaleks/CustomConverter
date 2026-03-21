@@ -145,7 +145,7 @@ first `:` and trims whitespace. This text is placed in a
 
 ## Chapter 3 — CLI Integration
 
-Add a single optional `--html PATH` argument to `main.py`.
+A single optional `--html PATH` argument was added to `main.py`.
 
 ### Usage
 
@@ -153,9 +153,9 @@ Add a single optional `--html PATH` argument to `main.py`.
 python main.py input.json output.xml --html output.html [other flags]
 ```
 
-### Changes to `main.py`
+### Implementation in `main.py`
 
-1. In `_build_parser()`, add:
+1. In `_build_parser()`:
    ```python
    p.add_argument(
        "--html",
@@ -178,7 +178,7 @@ python main.py input.json output.xml --html output.html [other flags]
 
 ## Chapter 4 — Unit Tests (`tests/test_renderer.py`)
 
-Minimum 9 test cases:
+17 tests delivered. Selected test cases:
 
 | Test | What it checks |
 |------|---------------|
@@ -199,30 +199,54 @@ writes a minimal JSON fixture.
 
 ---
 
-## Chapter 5 — Project Layout Update
+## Chapter 5 — Project Layout
 
 ```
 CustomConverter/
+├── main.py                      # Converter CLI (--html flag added in this phase)
+├── validate_json.py             # JSON validator CLI
+├── validate_schema.py           # Schema validator CLI
+├── sample.json                  # Minimal example input
+├── stealth.json                 # STEALTH algo example (10 parameters)
+├── requirements.txt             # lxml>=5.0 (no new dependencies added)
 ├── converter/
-│   ├── __init__.py
-│   ├── parser.py
-│   ├── builder.py
-│   ├── validator.py
-│   └── renderer.py       ← NEW
-├── tests/
-│   ├── __init__.py
-│   ├── test_parser.py
-│   ├── test_builder.py
-│   ├── test_validator.py
-│   └── test_renderer.py  ← NEW
-├── main.py               ← modified (--html flag)
+│   ├── parser.py                # JSON → AlgoDef/ParameterDef dataclasses
+│   ├── builder.py               # dataclasses → lxml XML tree
+│   ├── validator.py             # XSD validation (used by --validate flag)
+│   ├── renderer.py              # lxml XML tree → self-contained HTML page
+│   └── json_validator.py        # JSON descriptor validation (JSON-01..25)
+├── schema_validator/
+│   ├── loader.py                # XML parsing and element indexing
+│   ├── phase1_xsd.py            # Phase 1: XSD structural validation
+│   ├── phase2_refs.py           # Phase 2: referential integrity (REF-01..07)
+│   ├── phase3_sem.py            # Phase 3: semantic/business rules (SEM-01..16)
+│   ├── reporter.py              # Text and JSON output formatters
+│   └── runner.py                # Orchestrator (runs all three phases)
 ├── schemas/
-├── requirements.txt      ← no changes (stdlib html, textwrap; lxml already present)
-└── PROJECT_PLAN.md
+│   ├── atdl-core-1-1.xsd        # Root schema (imports the others)
+│   ├── atdl-validation-1-1.xsd
+│   ├── atdl-layout-1-1.xsd
+│   ├── atdl-flow-1-1.xsd
+│   ├── atdl-regions-1-1.xsd
+│   └── atdl-timezones-1-1.xsd
+├── examples/
+│   └── adversarial/             # 8 adversarial JSON files (one per rule group)
+└── tests/
+    ├── fixtures/
+    │   └── valid_full.xml
+    ├── test_parser.py
+    ├── test_builder.py
+    ├── test_validator.py
+    ├── test_phase1.py
+    ├── test_phase2.py
+    ├── test_phase3.py
+    ├── test_renderer.py
+    ├── test_json_validator.py
+    └── test_adversarial_examples.py
 ```
 
-`requirements.txt` — no new dependencies. The renderer uses only stdlib modules
-(`html`, `pathlib`) plus `lxml`, which is already required.
+`requirements.txt` — no new dependencies were added at any phase. The renderer
+uses only stdlib modules (`html`, `pathlib`) plus `lxml`, which was already required.
 
 ---
 
