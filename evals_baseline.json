@@ -1,0 +1,122 @@
+[
+  {
+    "file": "ARRIVAL_PRICE.json",
+    "json_valid": true,
+    "xsd_valid": true,
+    "semantic_valid": true,
+    "errors": [],
+    "warnings": [],
+    "parameters": [
+      {
+        "name": "ArrivalPxOffset",
+        "type": "PriceOffset_t"
+      },
+      {
+        "name": "Urgency",
+        "type": "String_t"
+      },
+      {
+        "name": "MaxDeviation",
+        "type": "Percentage_t"
+      },
+      {
+        "name": "AllowMomentum",
+        "type": "Boolean_t"
+      },
+      {
+        "name": "Currency",
+        "type": "Currency_t"
+      }
+    ]
+  },
+  {
+    "file": "DARK_SEEK.json",
+    "json_valid": true,
+    "xsd_valid": true,
+    "semantic_valid": true,
+    "errors": [],
+    "warnings": [],
+    "parameters": [
+      {
+        "name": "MinFillSize",
+        "type": "Qty_t"
+      },
+      {
+        "name": "MaxFillSize",
+        "type": "Qty_t"
+      },
+      {
+        "name": "AggressionLevel",
+        "type": "String_t"
+      },
+      {
+        "name": "AllowCross",
+        "type": "Boolean_t"
+      },
+      {
+        "name": "PriceImprovement",
+        "type": "Float_t"
+      }
+    ]
+  },
+  {
+    "file": "TWAP.json",
+    "json_valid": true,
+    "xsd_valid": true,
+    "semantic_valid": true,
+    "errors": [],
+    "warnings": [],
+    "parameters": [
+      {
+        "name": "StartTime",
+        "type": "UTCTimeOnly_t"
+      },
+      {
+        "name": "EndTime",
+        "type": "UTCTimeOnly_t"
+      },
+      {
+        "name": "SliceInterval",
+        "type": "Int_t"
+      },
+      {
+        "name": "RandomiseSliceSize",
+        "type": "Boolean_t"
+      },
+      {
+        "name": "LimitPrice",
+        "type": "Price_t"
+      }
+    ]
+  },
+  {
+    "file": "VWAP.json",
+    "json_valid": true,
+    "xsd_valid": true,
+    "semantic_valid": true,
+    "errors": [],
+    "warnings": [],
+    "parameters": [
+      {
+        "name": "StartTime",
+        "type": "UTCTimeOnly_t"
+      },
+      {
+        "name": "EndTime",
+        "type": "UTCTimeOnly_t"
+      },
+      {
+        "name": "MaxParticipationRate",
+        "type": "Percentage_t"
+      },
+      {
+        "name": "DisplayQuantity",
+        "type": "Qty_t"
+      },
+      {
+        "name": "VenueInclusion",
+        "type": "String_t"
+      }
+    ]
+  }
+]
