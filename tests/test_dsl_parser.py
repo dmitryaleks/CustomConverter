@@ -15,6 +15,7 @@ from source_converter.dsl_parser import (
 )
 
 STEALTH_DSL = Path(__file__).parent.parent / "examples" / "dsl" / "stealth_dsl.xml"
+IS_DSL = Path(__file__).parent.parent / "examples" / "sourcedsl" / "is_dsl.xml"
 
 
 # ---------------------------------------------------------------------------
@@ -115,26 +116,21 @@ class TestParseDslHappyPath:
         assert "execution window" in start.description
 
     def test_min_value_parsed(self):
-        # RiskAversion in is_dsl.xml has minValue="0"
-        IS_DSL = Path(__file__).parent.parent / "examples" / "sourcedsl" / "is_dsl.xml"
         algo = parse_dsl(IS_DSL)
         risk = next(p for p in algo.parameters if p.name == "RiskAversion")
         assert risk.min_value == "0"
 
     def test_max_value_parsed(self):
-        IS_DSL = Path(__file__).parent.parent / "examples" / "sourcedsl" / "is_dsl.xml"
         algo = parse_dsl(IS_DSL)
         risk = next(p for p in algo.parameters if p.name == "RiskAversion")
         assert risk.max_value == "1"
 
     def test_increment_parsed(self):
-        IS_DSL = Path(__file__).parent.parent / "examples" / "sourcedsl" / "is_dsl.xml"
         algo = parse_dsl(IS_DSL)
         risk = next(p for p in algo.parameters if p.name == "RiskAversion")
         assert risk.increment == "0.01"
 
     def test_absent_min_max_increment_is_none(self):
-        IS_DSL = Path(__file__).parent.parent / "examples" / "sourcedsl" / "is_dsl.xml"
         algo = parse_dsl(IS_DSL)
         # BenchmarkPrice has no minValue/maxValue/increment
         bench = next(p for p in algo.parameters if p.name == "BenchmarkPrice")

@@ -206,8 +206,6 @@ CustomConverter/
 ├── main.py                      # Converter CLI (--html flag added in this phase)
 ├── validate_json.py             # JSON validator CLI
 ├── validate_schema.py           # Schema validator CLI
-├── sample.json                  # Minimal example input
-├── stealth.json                 # STEALTH algo example (10 parameters)
 ├── requirements.txt             # lxml>=5.0 (no new dependencies added)
 ├── converter/
 │   ├── parser.py                # JSON → AlgoDef/ParameterDef dataclasses
@@ -254,9 +252,9 @@ uses only stdlib modules (`html`, `pathlib`) plus `lxml`, which was already requ
 
 ```bash
 # 1. Convert and render
-python main.py sample.json output.xml --html output.html
+python main.py examples/sample.json output.xml --html output.html
 
-# 2. Open in browser and verify form fields match parameters in sample.json
+# 2. Open in browser and verify form fields match parameters in examples/sample.json
 start output.html    # Windows
 open output.html     # macOS
 

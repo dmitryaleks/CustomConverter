@@ -320,30 +320,18 @@ def _get_description(param_elem: etree._Element) -> str:
     return ""
 
 
-def _get_init_values(strategy_elem: etree._Element) -> dict[str, str]:
-    """Return {parameterRef: initValue} from the StrategyLayout, if present."""
+def _get_control_attr_map(
+    strategy_elem: etree._Element, attr_name: str,
+) -> dict[str, str]:
+    """Return {parameterRef: value} for *attr_name* from StrategyLayout Controls."""
     result: dict[str, str] = {}
     for child in strategy_elem:
         if child.tag == _LAYOUT_TAG:
             for ctrl in child.iter(_CONTROL_TAG):
                 ref = ctrl.get("parameterRef")
-                iv = ctrl.get("initValue")
-                if ref and iv is not None:
-                    result[ref] = iv
-            break
-    return result
-
-
-def _get_increments(strategy_elem: etree._Element) -> dict[str, str]:
-    """Return {parameterRef: increment} from the StrategyLayout Controls, if present."""
-    result: dict[str, str] = {}
-    for child in strategy_elem:
-        if child.tag == _LAYOUT_TAG:
-            for ctrl in child.iter(_CONTROL_TAG):
-                ref = ctrl.get("parameterRef")
-                inc = ctrl.get("increment")
-                if ref and inc is not None:
-                    result[ref] = inc
+                val = ctrl.get(attr_name)
+                if ref and val is not None:
+                    result[ref] = val
             break
     return result
 
@@ -529,8 +517,8 @@ def _render_strategy(strategy_elem: etree._Element, strategy_index: int) -> str:
             meta_parts.append(f"Strategy Identifier Tag: {html.escape(sit)}")
     meta_html = " | ".join(meta_parts)
 
-    init_values = _get_init_values(strategy_elem)
-    increments   = _get_increments(strategy_elem)
+    init_values = _get_control_attr_map(strategy_elem, "initValue")
+    increments  = _get_control_attr_map(strategy_elem, "increment")
 
     field_groups: list[str] = []
     for child in strategy_elem:

@@ -215,6 +215,15 @@ def _parse_dsl_impl(
 
     required_fields = {"name", "type", "fix_tag"}
 
+    # Resolve the effective type mapper once, outside the loop
+    if type_mapper is None:
+        from source_converter.type_mapper import TypeMapper
+        type_mapper = TypeMapper()
+
+    # Pre-compute the set of DSL attributes covered by field_map expressions
+    mapped_attrs = {expr[1:] for expr in fm.field_expressions.values()
+                    if expr.startswith("@")}
+
     for param_elem in _children_by_local(container, fm.param_element):
         resolved: dict[str, str | None] = {}
 
@@ -239,15 +248,8 @@ def _parse_dsl_impl(
 
         # Type mapping
         raw_type: str = resolved["type"]  # type: ignore[assignment]
-        if type_mapper is not None:
-            mapped = type_mapper.map(raw_type)
-            fixatdl_type = mapped if mapped is not None else raw_type
-        else:
-            # Use default TypeMapper
-            from source_converter.type_mapper import TypeMapper
-            _default_mapper = TypeMapper()
-            mapped = _default_mapper.map(raw_type)
-            fixatdl_type = mapped if mapped is not None else raw_type
+        mapped = type_mapper.map(raw_type)
+        fixatdl_type = mapped if mapped is not None else raw_type
 
         # fix_tag → int
         try:
@@ -273,12 +275,7 @@ def _parse_dsl_impl(
                     supported_values.append(text)
 
         # Collect any DSL attributes not covered by field_map
-        param_attrs = set(param_elem.attrib.keys())
-        mapped_attrs = set()
-        for expr in fm.field_expressions.values():
-            if expr.startswith("@"):
-                mapped_attrs.add(expr[1:])
-        coverage_dropped_set.update(param_attrs - mapped_attrs)
+        coverage_dropped_set.update(set(param_elem.attrib.keys()) - mapped_attrs)
 
         parameters.append(
             ParameterDef(

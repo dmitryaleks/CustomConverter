@@ -147,8 +147,6 @@ CustomConverter/
 ├── main.py                      ← Converter CLI
 ├── validate_json.py             ← JSON validator CLI
 ├── validate_schema.py           ← Schema validator CLI
-├── sample.json                  ← Minimal example input
-├── stealth.json                 ← STEALTH algo example (10 parameters)
 ├── requirements.txt             ← lxml>=5.0
 ├── converter/
 │   ├── parser.py                ← JSON → AlgoDef / ParameterDef dataclasses

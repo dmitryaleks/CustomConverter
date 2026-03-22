@@ -11,6 +11,7 @@ apply(value, name)  — dispatch by transformer name; unknown → passthrough
 from __future__ import annotations
 
 import re
+from typing import Callable
 
 
 def pad_time(v: str) -> str:
@@ -44,7 +45,7 @@ def strip_percent(v: str) -> str:
     return v.strip().rstrip("%").strip()
 
 
-_REGISTRY: dict[str, callable] = {
+_REGISTRY: dict[str, Callable[[str], str]] = {
     "pad_time": pad_time,
     "normalize_boolean": normalize_boolean,
     "strip_percent": strip_percent,

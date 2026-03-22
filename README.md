@@ -6,10 +6,10 @@ Four independent CLI tools are provided:
 
 | Tool | Purpose |
 |---|---|
-| `main.py` | Convert a JSON algo descriptor → FIXATDL 1.1 XML, with optional HTML rendering |
+| `main.py` | Convert a JSON algo descriptor or XML DSL → FIXATDL 1.1 XML, with optional HTML rendering |
 | `validate_json.py` | Validate a JSON algo descriptor file (25 structural, semantic, and type-specific rules) |
 | `validate_schema.py` | Validate any ATDL XML document (structural + referential + semantic) |
-| `run_evals.py` | Batch-evaluate a directory of JSON descriptors end-to-end and report pass/fail, type mapping, and diffs |
+| `run_evals.py` | Batch-evaluate a directory of JSON and/or XML DSL files end-to-end and report pass/fail, type mapping, and diffs |
 
 ---
 
@@ -32,15 +32,13 @@ CustomConverter/
 ├── validate_json.py             # JSON descriptor validator CLI
 ├── validate_schema.py           # Schema validator CLI
 ├── run_evals.py                 # Batch eval CLI
-├── sample.json                  # Example input JSON
-├── stealth.json                 # STEALTH algo example (10 parameters)
 ├── requirements.txt
 ├── converter/
 │   ├── parser.py                # JSON → AlgoDef/ParameterDef dataclasses
 │   ├── builder.py               # dataclasses → lxml XML tree
 │   ├── validator.py             # XSD validation (used by --validate flag)
 │   ├── renderer.py              # lxml XML tree → self-contained HTML page
-│   └── json_validator.py        # JSON descriptor validation logic (JSON-01..25)
+│   └── json_validator.py        # JSON descriptor validation logic (JSON-01..28)
 ├── schema_validator/
 │   ├── loader.py                # XML parsing and element indexing
 │   ├── phase1_xsd.py            # Phase 1: XSD structural validation
@@ -51,7 +49,11 @@ CustomConverter/
 ├── source_converter/
 │   ├── type_map.toml            # Editable source vocab → FIXATDL type mapping
 │   ├── type_mapper.py           # TypeMapper class (lookup + coverage tracking)
-│   └── reporter.py              # Dashboard, type report, coverage, diff formatters
+│   ├── field_map.toml           # DSL XML field → ParameterDef mapping config
+│   ├── dsl_parser.py            # XML DSL → AlgoDef (with field coverage reporting)
+│   ├── dsl_to_json.py           # AlgoDef → proprietary JSON serializer
+│   ├── transformers.py          # Value normalizers (pad_time, normalize_boolean, strip_percent)
+│   └── reporter.py              # Dashboard, type report, coverage, diff, field report formatters
 ├── schemas/
 │   ├── atdl-core-1-1.xsd        # Root schema (imports the others)
 │   ├── atdl-validation-1-1.xsd
@@ -60,6 +62,13 @@ CustomConverter/
 │   ├── atdl-regions-1-1.xsd
 │   └── atdl-timezones-1-1.xsd
 ├── examples/
+│   ├── sample.json                      # Minimal example input JSON (2 params)
+│   ├── stealth.json                     # STEALTH algo example (10 parameters)
+│   ├── dsl/
+│   │   └── stealth_dsl.xml              # STEALTH algo in proprietary XML DSL format
+│   ├── sourcedsl/
+│   │   ├── is_dsl.xml                   # Implementation Shortfall algo DSL (with min/max/increment)
+│   │   └── is_converted.json            # IS algo converted to proprietary JSON
 │   └── adversarial/
 │       ├── wrong_fix_tag_range.json     # JSON-21: standard FIX tags used for algo params
 │       ├── malformed_names.json         # JSON-20: invalid FIXATDL identifier names
@@ -82,14 +91,16 @@ CustomConverter/
     ├── test_json_validator.py
     ├── test_adversarial_examples.py
     ├── test_type_mapper.py
-    └── test_eval_runner.py
+    ├── test_eval_runner.py
+    ├── test_dsl_parser.py
+    └── test_transformers.py
 ```
 
 ---
 
 ## Tool 1 — Converter (`main.py`)
 
-Converts a proprietary ATDL JSON descriptor into a FIXATDL 1.1 XML file.
+Converts a proprietary ATDL JSON descriptor or XML DSL file into a FIXATDL 1.1 XML file. Input format is auto-detected from the file extension (`.json` or `.xml`).
 
 ### Input JSON format
 
@@ -115,6 +126,18 @@ The JSON file must have exactly one top-level key — the algorithm name. Its va
           "TYPE": "Int_t",
           "FIXTAGNUMBER": 5002
         }
+      },
+      {
+        "RiskAversion": {
+          "NAME": "RiskAversion",
+          "DESCRIPTION": "Trade-off between impact and timing risk",
+          "TYPE": "Float_t",
+          "FIXTAGNUMBER": 5003,
+          "DEFAULT_VALUE": "0.5",
+          "MIN_VALUE": "0",
+          "MAX_VALUE": "1",
+          "INCREMENT": "0.01"
+        }
       }
     ]
   }
@@ -131,6 +154,10 @@ The JSON file must have exactly one top-level key — the algorithm name. Its va
 | `FIXTAGNUMBER` | Yes | `Parameter@fixTag` | Positive integer |
 | `DESCRIPTION` | No | XML comment before `<Parameter>` | Not a standard ATDL attribute |
 | `SUPPORTED_VALUES` | No | `<EnumPair>` children | List of strings |
+| `DEFAULT_VALUE` | No | `lay:Control@initValue` | Initial value for the control |
+| `MIN_VALUE` | No | `Parameter@minValue` | Minimum value (numeric types only) |
+| `MAX_VALUE` | No | `Parameter@maxValue` | Maximum value (numeric types only) |
+| `INCREMENT` | No | `lay:Control@increment` | Spinner step size (numeric types only) |
 
 #### Supported TYPE values
 
@@ -149,7 +176,7 @@ python main.py INPUT OUTPUT [OPTIONS]
 
 | Argument | Description |
 |---|---|
-| `INPUT` | Path to the input JSON file |
+| `INPUT` | Path to the input JSON or XML DSL file |
 | `OUTPUT` | Path for the output XML file (created or overwritten) |
 | `--html HTML` | Render strategies to a self-contained interactive HTML file |
 | `--validate` | Validate the output XML against the bundled XSD after writing |
@@ -171,38 +198,72 @@ python main.py INPUT OUTPUT [OPTIONS]
 **Basic conversion:**
 
 ```bash
-python main.py sample.json output.xml
+python main.py examples/sample.json output.xml
 ```
 
 **Convert and validate against the bundled XSD:**
 
 ```bash
-python main.py sample.json output.xml --validate
+python main.py examples/sample.json output.xml --validate
 ```
 
 **Custom provider and version:**
 
 ```bash
-python main.py sample.json output.xml --validate --provider-id ACME --strategy-version 2
+python main.py examples/sample.json output.xml --validate --provider-id ACME --strategy-version 2
 ```
 
 **Convert and render an interactive HTML preview:**
 
 ```bash
-python main.py sample.json output.xml --html output.html
+python main.py examples/sample.json output.xml --html output.html
 ```
 
 **Full pipeline — convert, render HTML, and validate XSD in one step:**
 
 ```bash
-python main.py sample.json output.xml --html output.html --validate
+python main.py examples/sample.json output.xml --html output.html --validate
 ```
 
 **Custom strategy identifier tag:**
 
 ```bash
-python main.py sample.json output.xml --strategy-identifier-tag 5000
+python main.py examples/sample.json output.xml --strategy-identifier-tag 5000
 ```
+
+**Convert from an XML DSL file (auto-detected by `.xml` extension):**
+
+```bash
+python main.py examples/dsl/stealth_dsl.xml stealth.xml --validate --html stealth.html
+```
+
+### Input XML DSL format
+
+XML DSL files use a simple structure mapped through `source_converter/field_map.toml`. The field mapping, type translation, and value normalization are all configurable. Parameters can carry `minValue`, `maxValue`, and `increment` attributes for numeric constraints:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<AlgoDef xmlns="http://firm.example.com/algo-dsl/1.0" name="IS">
+  <Parameters>
+    <Parameter id="StartTime" dataType="time" tag="7001" default="09:30:00">
+      <Description>Scheduled start of the execution window (UTC)</Description>
+    </Parameter>
+    <Parameter id="RiskAversion" dataType="float" tag="7003" default="0.5"
+               minValue="0" maxValue="1" increment="0.01">
+      <Description>Trade-off between impact and timing risk</Description>
+    </Parameter>
+    <Parameter id="MaxParticipationRate" dataType="percent" tag="7006" default="20%"
+               minValue="1" maxValue="100" increment="1">
+      <Description>Hard cap on fraction of market volume</Description>
+    </Parameter>
+  </Parameters>
+</AlgoDef>
+```
+
+In the generated FIXATDL XML:
+- `minValue`/`maxValue` are written on `<Parameter>` elements for supported numeric types (`Int_t`, `Float_t`, `Qty_t`, `Price_t`, `PriceOffset_t`, `Amt_t`, `Percentage_t`).
+- `increment` is written on `<lay:Control xsi:type="lay:SingleSpinner_t">` elements.
+- In the HTML preview, `increment` becomes the `step` attribute on `<input type="number">` controls, and `minValue`/`maxValue` become `min`/`max` attributes.
 
 ### HTML output
 
@@ -219,9 +280,9 @@ The `--html` flag produces a **self-contained, offline-capable HTML page** with 
 | FIXATDL type | HTML control |
 |---|---|
 | `String_t` | `<input type="text">` |
-| `Int_t`, `SeqNum_t`, `Length_t`, `NumInGroup_t`, `TagNum_t` | `<input type="number" step="1">` |
-| `Float_t`, `Qty_t`, `Price_t`, `PriceOffset_t`, `Amt_t`, `Numeric_t` | `<input type="number">` |
-| `Percentage_t` | `<input type="number" min="0" max="100">` + `%` suffix |
+| `Int_t`, `SeqNum_t`, `Length_t`, `NumInGroup_t`, `TagNum_t` | `<input type="number" step="1">` (step from `INCREMENT` if set) |
+| `Float_t`, `Qty_t`, `Price_t`, `PriceOffset_t`, `Amt_t`, `Numeric_t` | `<input type="number">` (step from `INCREMENT` if set) |
+| `Percentage_t` | `<input type="number">` + `%` suffix (min/max/step from `MIN_VALUE`/`MAX_VALUE`/`INCREMENT`) |
 | `Char_t` | `<input type="text" maxlength="1">` |
 | `Boolean_t` | `<input type="checkbox">` |
 | `Currency_t` | `<input type="text" maxlength="3" pattern="[A-Z]{3}">` |
@@ -237,13 +298,14 @@ The `--html` flag produces a **self-contained, offline-capable HTML page** with 
 
 ### Output XML
 
-The generated XML follows the FIXATDL 1.1 structure. For `sample.json`:
+The generated XML follows the FIXATDL 1.1 structure. For `examples/sample.json`:
 
 ```xml
 <?xml version='1.0' encoding='UTF-8'?>
 <Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core"
             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
             xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core"
+            xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout"
             strategyIdentifierTag="847"
             xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
   <Strategy name="MyAlgo" uiRep="MyAlgo" wireValue="MyAlgo"
@@ -256,6 +318,16 @@ The generated XML follows the FIXATDL 1.1 structure. For `sample.json`:
     </Parameter>
     <!-- myParam2: An integer param with no enum values -->
     <Parameter name="myParam2" xsi:type="core:Int_t" fixTag="5002" mutableOnCxlRpl="true"/>
+    <!-- RiskAversion: Trade-off between impact and timing risk -->
+    <Parameter name="RiskAversion" xsi:type="core:Float_t" fixTag="5003"
+               mutableOnCxlRpl="true" minValue="0" maxValue="1"/>
+    <lay:StrategyLayout>
+      <lay:StrategyPanel>
+        <lay:Control ID="RiskAversion" xsi:type="lay:SingleSpinner_t"
+                     parameterRef="RiskAversion" label="RiskAversion"
+                     increment="0.01" initValue="0.5"/>
+      </lay:StrategyPanel>
+    </lay:StrategyLayout>
   </Strategy>
 </Strategies>
 ```
@@ -267,6 +339,8 @@ The generated XML follows the FIXATDL 1.1 structure. For `sample.json`:
 - `Parameter@mutableOnCxlRpl` is always `"true"`.
 - `SUPPORTED_VALUES` items whose first character is not a letter are prefixed with `V_` to satisfy the `EnumPair@enumID` pattern constraint (`[A-Za-z][A-Za-z0-9_]{0,255}`).
 - `DESCRIPTION` is written as a preceding XML comment, not as an XML attribute (not part of the ATDL schema).
+- `MIN_VALUE`/`MAX_VALUE` → `Parameter@minValue`/`@maxValue` (numeric types: `Int_t`, `Float_t`, `Qty_t`, `Price_t`, `PriceOffset_t`, `Amt_t`, `Percentage_t`).
+- `INCREMENT` → `lay:Control@increment` on `SingleSpinner_t` controls; also drives the HTML `step` attribute.
 
 ---
 
@@ -303,7 +377,7 @@ python validate_json.py FILE [OPTIONS]
 **Validate a descriptor (text output):**
 
 ```bash
-python validate_json.py stealth.json
+python validate_json.py examples/stealth.json
 ```
 
 ```
@@ -336,7 +410,7 @@ python validate_json.py bad.json --format json
 **Silent check for use in shell scripts:**
 
 ```bash
-python validate_json.py stealth.json --quiet
+python validate_json.py examples/stealth.json --quiet
 if [ $? -eq 0 ]; then
     echo "Valid — safe to convert"
 else
@@ -372,7 +446,9 @@ fi
 | JSON-22 | Error | `SUPPORTED_VALUES` items must be unique within a parameter |
 | JSON-23 | Error | `Boolean_t` parameters must have 0 or 2 `SUPPORTED_VALUES` entries (true-wire and false-wire values) |
 | JSON-24 | Error | `Char_t` and `MultipleCharValue_t` parameters: each `SUPPORTED_VALUES` entry must be a single character |
-| JSON-25 | Warning | Unrecognised fields in a parameter body (only `NAME`, `TYPE`, `FIXTAGNUMBER`, `DESCRIPTION`, `SUPPORTED_VALUES` are valid) |
+| JSON-25 | Warning | Unrecognised fields in a parameter body (known fields: `NAME`, `TYPE`, `FIXTAGNUMBER`, `DESCRIPTION`, `SUPPORTED_VALUES`, `DEFAULT_VALUE`, `MIN_VALUE`, `MAX_VALUE`, `INCREMENT`) |
+| JSON-27 | Error | `MIN_VALUE`/`MAX_VALUE` must be numeric strings; if both present, min must be <= max |
+| JSON-28 | Error | `INCREMENT` must be a positive numeric string |
 
 ---
 
@@ -541,10 +617,11 @@ Enforced automatically by `atdl-core-1-1.xsd` and its imports. Common failures:
 
 ## Tool 4 — Batch Eval Runner (`run_evals.py`)
 
-Validates a directory of already-converted JSON descriptor files end-to-end
+Validates a directory of JSON descriptor files and/or XML DSL files end-to-end
 (JSON rules → FIXATDL XML conversion → XSD + semantic validation) and prints
-four structured reports. Designed for CI pipelines and iterative development of
-the upstream source→JSON converter.
+four structured reports. XML DSL files skip JSON validation and go directly to
+conversion. Designed for CI pipelines and iterative development of the upstream
+source→JSON converter.
 
 ### Usage
 
@@ -554,7 +631,7 @@ python run_evals.py JSONDIR [OPTIONS]
 
 | Argument | Description |
 |---|---|
-| `JSONDIR` | Directory containing JSON descriptor files to evaluate |
+| `JSONDIR` | Directory containing JSON and/or XML DSL files to evaluate |
 | `--baseline FILE` | Previous results JSON for diff/changelog output |
 | `--output FILE` | Persist results to this JSON file (must be outside `JSONDIR`) |
 | `--format text\|json` | Output format (default: `text`) |
@@ -876,20 +953,22 @@ python validate_json.py examples/adversarial/invalid_types.json --format json
 python -m pytest tests/ -v
 ```
 
-283 tests cover the full pipeline — JSON validation, conversion, XSD validation, HTML rendering, type mapping, and batch evaluation.
+392 tests cover the full pipeline — JSON validation (including min/max/increment rules), conversion, XSD validation, HTML rendering, type mapping, DSL parsing, and batch evaluation.
 
 ```
-tests/test_parser.py                14 tests — JSON parsing, error cases
-tests/test_builder.py               26 tests — XML structure, attributes, EnumPairs
-tests/test_validator.py              5 tests — XSD validation pass/fail
-tests/test_phase1.py                 8 tests — structural checks
-tests/test_phase2.py                25 tests — REF-01..07
-tests/test_phase3.py                25 tests — SEM-01..16
-tests/test_renderer.py              17 tests — HTML control mapping, CLI --html flag
-tests/test_json_validator.py        86 tests — JSON-01..25, file-based, CLI
-tests/test_adversarial_examples.py  18 tests — disk-based adversarial JSON examples
+tests/test_json_validator.py       108 tests — JSON-01..28, file-based, CLI
+tests/test_builder.py               58 tests — XML structure, attributes, EnumPairs, minValue/maxValue, increment
 tests/test_type_mapper.py           36 tests — TypeMapper lookup, coverage, config loading
+tests/test_phase3.py                33 tests — SEM-01..16
+tests/test_dsl_parser.py            26 tests — DSL XML parsing, field mapping, min/max/increment
+tests/test_renderer.py              23 tests — HTML control mapping, CLI --html flag, increment→step
+tests/test_transformers.py          21 tests — pad_time, normalize_boolean, strip_percent
+tests/test_parser.py                20 tests — JSON parsing, error cases, min/max/increment
 tests/test_eval_runner.py           19 tests — single-file pipeline, batch runner, CLI flags
+tests/test_adversarial_examples.py  18 tests — disk-based adversarial JSON examples
+tests/test_phase2.py                17 tests — REF-01..07
+tests/test_phase1.py                 8 tests — structural checks
+tests/test_validator.py              5 tests — XSD validation pass/fail
 ```
 
 ---
@@ -898,10 +977,10 @@ tests/test_eval_runner.py           19 tests — single-file pipeline, batch run
 
 ```bash
 # 1. Validate the JSON descriptor before conversion
-python validate_json.py sample.json
+python validate_json.py examples/sample.json
 
-# 2. Convert sample.json to FIXATDL XML
-python main.py sample.json output.xml
+# 2. Convert examples/sample.json to FIXATDL XML
+python main.py examples/sample.json output.xml
 
 # 3. Validate the output XML with full detail
 python validate_schema.py output.xml --warnings
@@ -910,11 +989,11 @@ python validate_schema.py output.xml --warnings
 python validate_schema.py output.xml --format json --warnings
 
 # 5. Convert and validate XML in one step
-python main.py sample.json output.xml --validate
+python main.py examples/sample.json output.xml --validate
 
 # 6. Full pipeline — validate JSON, convert, validate XML, render HTML
-python validate_json.py sample.json && \
-python main.py sample.json output.xml --validate --html output.html
+python validate_json.py examples/sample.json && \
+python main.py examples/sample.json output.xml --validate --html output.html
 
 # 7. Batch-evaluate a directory of converted JSON files
 python run_evals.py examples/adversarial/ --warnings
@@ -926,7 +1005,7 @@ python run_evals.py examples/adversarial/ --baseline evals_baseline.json
 
 ## STEALTH Algo Example
 
-`stealth.json` is a more complete descriptor demonstrating a range of parameter types:
+`examples/stealth.json` is a more complete descriptor demonstrating a range of parameter types:
 
 | Parameter | FIXATDL type | HTML control |
 |---|---|---|
@@ -935,7 +1014,7 @@ python run_evals.py examples/adversarial/ --baseline evals_baseline.json
 | `TargetPrice` | `Price_t` | number input |
 | `DisplayQuantity` | `Qty_t` | number input |
 | `MinFillSize` | `Qty_t` | number input |
-| `MaxParticipationRate` | `Percentage_t` | number input (0–100) + `%` |
+| `MaxParticipationRate` | `Percentage_t` | number input (0–100, step=1) + `%` |
 | `Sentiment` | `String_t` + enum | dropdown (`Bullish` / `Bearish` / `Neutral`) |
 | `VenueFocus` | `String_t` + enum | dropdown (`DarkOnly` / `LitOnly` / `Mixed` / `SmartRoute`) |
 | `AllowOddLots` | `Boolean_t` | checkbox |
@@ -943,7 +1022,7 @@ python run_evals.py examples/adversarial/ --baseline evals_baseline.json
 
 ```bash
 # Convert STEALTH descriptor → XML + HTML in one step
-python main.py stealth.json stealth.xml --validate --html stealth.html
+python main.py examples/stealth.json stealth.xml --validate --html stealth.html
 
 # Open the interactive HTML preview
 start stealth.html    # Windows

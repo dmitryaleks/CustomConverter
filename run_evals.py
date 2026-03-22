@@ -87,6 +87,41 @@ def _extract_parameters_xml(xml_path: Path) -> list[dict]:
         return []
 
 
+def _run_schema_validation(
+    xml_bytes: bytes, schema_path: Path, result: dict,
+) -> None:
+    """Validate *xml_bytes* against the XSD schema and populate *result* in place."""
+    try:
+        with tempfile.NamedTemporaryFile(
+            suffix=".xml", delete=False, dir=tempfile.gettempdir()
+        ) as tmp:
+            tmp.write(xml_bytes)
+            tmp_path = Path(tmp.name)
+
+        try:
+            val_result = schema_validate(tmp_path, schema_path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+        xsd_errors = [e for e in val_result.errors if e.phase == 1]
+        ref_errors = [e for e in val_result.errors if e.phase == 2]
+        sem_errors = [e for e in val_result.errors if e.phase == 3]
+
+        result["xsd_valid"] = len(xsd_errors) == 0
+        result["semantic_valid"] = len(ref_errors) + len(sem_errors) == 0
+
+        for e in val_result.errors:
+            prefix = {1: "XSD", 2: "REF", 3: "SEM"}.get(e.phase, "ERR")
+            result["errors"].append(f"[{prefix}:{e.rule_id}] {e.message}")
+        for w in val_result.warnings:
+            result["warnings"].append(f"[SEM:{w.rule_id}] {w.message}")
+
+    except Exception as exc:
+        result["xsd_valid"] = False
+        result["semantic_valid"] = False
+        result["errors"].append(f"Schema validation error: {exc}")
+
+
 def evaluate_dsl_file(xml_path: Path, schema_path: Path) -> dict:
     """Run the conversion + schema validation pipeline on a single DSL XML file.
 
@@ -123,37 +158,7 @@ def evaluate_dsl_file(xml_path: Path, schema_path: Path) -> dict:
         return result
 
     # ── Step 2: Schema validation (phases 1-3) via temp file ─────────────────
-    try:
-        with tempfile.NamedTemporaryFile(
-            suffix=".xml", delete=False, dir=tempfile.gettempdir()
-        ) as tmp:
-            tmp.write(xml_bytes)
-            tmp_path = Path(tmp.name)
-
-        try:
-            val_result = schema_validate(tmp_path, schema_path)
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
-        xsd_errors = [e for e in val_result.errors if e.phase == 1]
-        ref_errors = [e for e in val_result.errors if e.phase == 2]
-        sem_errors = [e for e in val_result.errors if e.phase == 3]
-        sem_warnings = list(val_result.warnings)
-
-        result["xsd_valid"] = len(xsd_errors) == 0
-        result["semantic_valid"] = len(ref_errors) + len(sem_errors) == 0
-
-        for e in val_result.errors:
-            prefix = {1: "XSD", 2: "REF", 3: "SEM"}.get(e.phase, "ERR")
-            result["errors"].append(f"[{prefix}:{e.rule_id}] {e.message}")
-        for w in sem_warnings:
-            result["warnings"].append(f"[SEM:{w.rule_id}] {w.message}")
-
-    except Exception as exc:
-        result["xsd_valid"] = False
-        result["semantic_valid"] = False
-        result["errors"].append(f"Schema validation error: {exc}")
-
+    _run_schema_validation(xml_bytes, schema_path, result)
     return result
 
 
@@ -214,40 +219,7 @@ def evaluate_file(json_path: Path, schema_path: Path) -> dict:
         return result
 
     # ── Step 3: Schema validation (phases 1-3) via temp file ─────────────────
-    try:
-        with tempfile.NamedTemporaryFile(
-            suffix=".xml", delete=False, dir=tempfile.gettempdir()
-        ) as tmp:
-            tmp.write(xml_bytes)
-            tmp_path = Path(tmp.name)
-
-        try:
-            val_result = schema_validate(tmp_path, schema_path)
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
-        xsd_errors = [e for e in val_result.errors if e.phase == 1]
-        ref_errors = [e for e in val_result.errors if e.phase == 2]
-        sem_errors = [e for e in val_result.errors if e.phase == 3]
-        sem_warnings = list(val_result.warnings)
-
-        # XSD validity = no phase-1 errors
-        result["xsd_valid"] = len(xsd_errors) == 0
-
-        # Semantic validity = no phase-2 or phase-3 errors
-        result["semantic_valid"] = len(ref_errors) + len(sem_errors) == 0
-
-        for e in val_result.errors:
-            prefix = {1: "XSD", 2: "REF", 3: "SEM"}.get(e.phase, "ERR")
-            result["errors"].append(f"[{prefix}:{e.rule_id}] {e.message}")
-        for w in sem_warnings:
-            result["warnings"].append(f"[SEM:{w.rule_id}] {w.message}")
-
-    except Exception as exc:
-        result["xsd_valid"] = False
-        result["semantic_valid"] = False
-        result["errors"].append(f"Schema validation error: {exc}")
-
+    _run_schema_validation(xml_bytes, schema_path, result)
     return result
 
 
@@ -269,13 +241,11 @@ def run_batch(
 
     results = []
     for fp in all_files:
+        result = evaluate_dsl_file(fp, schema_path) if fp.suffix == ".xml" else evaluate_file(fp, schema_path)
         # Feed each TYPE field through the mapper for coverage tracking
-        params = _extract_parameters_xml(fp) if fp.suffix == ".xml" else _extract_parameters(fp)
-        for p in params:
+        for p in result.get("parameters", []):
             if p.get("type"):
                 mapper.map(p["type"])
-
-        result = evaluate_dsl_file(fp, schema_path) if fp.suffix == ".xml" else evaluate_file(fp, schema_path)
         results.append(result)
     return results
 

@@ -408,7 +408,7 @@ class TestHappyPath:
 
     def test_stealth_descriptor_valid(self):
         """The STEALTH sample file must produce zero issues."""
-        stealth = Path(__file__).parent.parent / "stealth.json"
+        stealth = Path(__file__).parent.parent / "examples" / "stealth.json"
         if stealth.exists():
             issues = validate_json(stealth)
             assert issues == [], [i.message for i in issues]

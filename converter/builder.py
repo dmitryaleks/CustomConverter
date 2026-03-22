@@ -57,6 +57,9 @@ _SPINNER_TYPES: frozenset[str] = frozenset({
 _CLOCK_TYPES: frozenset[str] = frozenset({
     "UTCTimeOnly_t", "LocalMktTime_t",
 })
+# Subset of _SPINNER_TYPES whose FIXATDL schema definitions include
+# minValue/maxValue attributes.  Types like Length_t, SeqNum_t get spinner
+# controls but the XSD does not define min/max constraints for them.
 _MINMAX_TYPES: frozenset[str] = frozenset({
     "Int_t", "Float_t", "Qty_t", "Price_t", "PriceOffset_t", "Amt_t", "Percentage_t",
 })
