@@ -25,7 +25,10 @@
           "DESCRIPTION": "Trade-off between market impact and timing risk (0 = pure impact minimisation, 1 = urgent/aggressive)",
           "TYPE": "Float_t",
           "FIXTAGNUMBER": 7003,
-          "DEFAULT_VALUE": "0.5"
+          "DEFAULT_VALUE": "0.5",
+          "MIN_VALUE": "0",
+          "MAX_VALUE": "1",
+          "INCREMENT": "0.01"
         }
       },
       {
@@ -42,7 +45,10 @@
           "DESCRIPTION": "Rate at which the alpha signal decays over the execution horizon (per minute, annualised units)",
           "TYPE": "Float_t",
           "FIXTAGNUMBER": 7005,
-          "DEFAULT_VALUE": "0.1"
+          "DEFAULT_VALUE": "0.1",
+          "MIN_VALUE": "0",
+          "MAX_VALUE": "1",
+          "INCREMENT": "0.01"
         }
       },
       {
@@ -51,7 +57,10 @@
           "DESCRIPTION": "Hard cap on the fraction of market volume the algo may consume",
           "TYPE": "Percentage_t",
           "FIXTAGNUMBER": 7006,
-          "DEFAULT_VALUE": "20"
+          "DEFAULT_VALUE": "20",
+          "MIN_VALUE": "1",
+          "MAX_VALUE": "100",
+          "INCREMENT": "1"
         }
       },
       {

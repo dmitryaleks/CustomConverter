@@ -407,3 +407,73 @@ class TestStrategyLayout:
         assert items[0].get("uiRep") == "MKT"
         assert items[1].get("enumID") == "LMT"
         assert items[1].get("uiRep") == "LMT"
+
+
+# ---------------------------------------------------------------------------
+# Build: minValue / maxValue on Parameter elements
+# ---------------------------------------------------------------------------
+
+def _make_param_full(name="p", type_="Float_t", tag=5001, default=None,
+                     min_value=None, max_value=None, increment=None):
+    return ParameterDef(name=name, description="", type=type_, fix_tag=tag,
+                        supported_values=[], default_value=default,
+                        min_value=min_value, max_value=max_value,
+                        increment=increment)
+
+
+def _get_param_elem(root):
+    return _get_strategy(root).find(_qname("Parameter"))
+
+
+class TestMinMaxOnParameter:
+    def test_min_value_on_parameter(self):
+        algo = AlgoDef("A", [_make_param_full(min_value="0", max_value="1", default="0.5")])
+        root = build_fixatdl(algo)
+        assert _get_param_elem(root).get("minValue") == "0"
+
+    def test_max_value_on_parameter(self):
+        algo = AlgoDef("A", [_make_param_full(min_value="0", max_value="1", default="0.5")])
+        root = build_fixatdl(algo)
+        assert _get_param_elem(root).get("maxValue") == "1"
+
+    def test_no_min_max_when_absent(self):
+        algo = AlgoDef("A", [_make_param_full(default="0.5")])
+        root = build_fixatdl(algo)
+        param = _get_param_elem(root)
+        assert param.get("minValue") is None
+        assert param.get("maxValue") is None
+
+    def test_min_max_not_on_non_minmax_type(self):
+        # Length_t is in _SPINNER_TYPES but NOT in _MINMAX_TYPES
+        algo = AlgoDef("A", [_make_param_full(type_="Length_t", min_value="1", max_value="10", default="5")])
+        root = build_fixatdl(algo)
+        param = _get_param_elem(root)
+        assert param.get("minValue") is None
+        assert param.get("maxValue") is None
+
+
+class TestIncrementOnSpinner:
+    def test_increment_on_spinner_control(self):
+        algo = AlgoDef("A", [_make_param_full(increment="0.01", default="0.5")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get("increment") == "0.01"
+
+    def test_no_increment_on_non_spinner(self):
+        algo = AlgoDef("A", [_make_param_full(type_="Boolean_t", increment="1", default="true")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get("increment") is None
+
+    def test_layout_generated_for_increment_only(self):
+        # increment set but no default_value — layout must still be generated
+        algo = AlgoDef("A", [_make_param_full(increment="5")])
+        root = build_fixatdl(algo)
+        assert _get_strategy(root).find(f".//{_lqname('StrategyLayout')}") is not None
+
+    def test_increment_not_on_non_spinner_type(self):
+        # Boolean_t with increment — no increment on control
+        algo = AlgoDef("A", [_make_param_full(type_="Boolean_t", increment="1", default="false")])
+        root = build_fixatdl(algo)
+        ctrl = _get_strategy(root).find(f".//{_lqname('Control')}")
+        assert ctrl.get("increment") is None

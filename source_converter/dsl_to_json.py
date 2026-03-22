@@ -53,6 +53,12 @@ def algo_to_dict(algo: AlgoDef) -> dict:
             body["SUPPORTED_VALUES"] = list(p.supported_values)
         if p.default_value is not None:
             body["DEFAULT_VALUE"] = p.default_value
+        if p.min_value is not None:
+            body["MIN_VALUE"] = p.min_value
+        if p.max_value is not None:
+            body["MAX_VALUE"] = p.max_value
+        if p.increment is not None:
+            body["INCREMENT"] = p.increment
         params.append({p.name: body})
 
     return {algo.name: {"PARAMETERS": params}}

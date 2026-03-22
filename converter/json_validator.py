@@ -84,6 +84,9 @@ _KNOWN_PARAM_FIELDS: frozenset[str] = frozenset({
     "DESCRIPTION",
     "SUPPORTED_VALUES",
     "DEFAULT_VALUE",
+    "MIN_VALUE",
+    "MAX_VALUE",
+    "INCREMENT",
 })
 
 # Pattern for a valid FIXATDL parameter identifier (JSON-20).
@@ -435,6 +438,67 @@ def validate_data(data: Any) -> list[ValidationIssue]:
                     "'DEFAULT_VALUE' must be a non-empty string",
                     f"{param_path}.DEFAULT_VALUE",
                 ))
+
+        # JSON-27 — MIN_VALUE / MAX_VALUE must be numeric; min ≤ max ----------
+        for key in ("MIN_VALUE", "MAX_VALUE"):
+            if key in param_body:
+                v = param_body[key]
+                if not isinstance(v, str) or not v:
+                    issues.append(_err(
+                        "JSON-27",
+                        f"'{key}' must be a non-empty string; "
+                        f"got {type(v).__name__}",
+                        f"{param_path}.{key}",
+                    ))
+                else:
+                    try:
+                        float(v)
+                    except ValueError:
+                        issues.append(_err(
+                            "JSON-27",
+                            f"'{key}' must be a numeric string; got {v!r}",
+                            f"{param_path}.{key}",
+                        ))
+
+        if "MIN_VALUE" in param_body and "MAX_VALUE" in param_body:
+            try:
+                mn = float(param_body["MIN_VALUE"])
+                mx = float(param_body["MAX_VALUE"])
+                if mn > mx:
+                    issues.append(_err(
+                        "JSON-27",
+                        f"MIN_VALUE ({param_body['MIN_VALUE']}) must be "
+                        f"\u2264 MAX_VALUE ({param_body['MAX_VALUE']})",
+                        f"{param_path}.MIN_VALUE",
+                    ))
+            except (ValueError, TypeError):
+                pass
+
+        # JSON-28 — INCREMENT must be a positive numeric string ---------------
+        if "INCREMENT" in param_body:
+            v = param_body["INCREMENT"]
+            if not isinstance(v, str) or not v:
+                issues.append(_err(
+                    "JSON-28",
+                    f"'INCREMENT' must be a non-empty string; "
+                    f"got {type(v).__name__}",
+                    f"{param_path}.INCREMENT",
+                ))
+            else:
+                try:
+                    inc = float(v)
+                    if inc <= 0:
+                        issues.append(_err(
+                            "JSON-28",
+                            f"'INCREMENT' must be a positive number; got {v!r}",
+                            f"{param_path}.INCREMENT",
+                        ))
+                except ValueError:
+                    issues.append(_err(
+                        "JSON-28",
+                        f"'INCREMENT' must be a numeric string; got {v!r}",
+                        f"{param_path}.INCREMENT",
+                    ))
 
         # JSON-25 — warn on unrecognised parameter body fields ---------------
         for extra_key in param_body:

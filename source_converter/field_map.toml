@@ -21,6 +21,9 @@ type          = "@dataType"
 fix_tag       = "@tag"
 default_value = "@default"
 description   = "Description"
+min_value     = "@minValue"
+max_value     = "@maxValue"
+increment     = "@increment"
 
 # Allowed values list
 [supported_values]

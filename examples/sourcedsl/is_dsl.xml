@@ -18,7 +18,8 @@
       <Description>Scheduled end of the execution window (UTC); must be after StartTime</Description>
     </Parameter>
 
-    <Parameter id="RiskAversion" dataType="float" tag="7003" default="0.5">
+    <Parameter id="RiskAversion" dataType="float" tag="7003" default="0.5"
+               minValue="0" maxValue="1" increment="0.01">
       <Description>Trade-off between market impact and timing risk (0 = pure impact minimisation, 1 = urgent/aggressive)</Description>
     </Parameter>
 
@@ -26,11 +27,13 @@
       <Description>Arrival price used as the IS benchmark; leave blank to use the mid-quote at order receipt</Description>
     </Parameter>
 
-    <Parameter id="AlphaDecay" dataType="float" tag="7005" default="0.1">
+    <Parameter id="AlphaDecay" dataType="float" tag="7005" default="0.1"
+               minValue="0" maxValue="1" increment="0.01">
       <Description>Rate at which the alpha signal decays over the execution horizon (per minute, annualised units)</Description>
     </Parameter>
 
-    <Parameter id="MaxParticipationRate" dataType="percent" tag="7006" default="20%">
+    <Parameter id="MaxParticipationRate" dataType="percent" tag="7006" default="20%"
+               minValue="1" maxValue="100" increment="1">
       <Description>Hard cap on the fraction of market volume the algo may consume</Description>
     </Parameter>
 

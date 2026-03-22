@@ -57,6 +57,9 @@ _SPINNER_TYPES: frozenset[str] = frozenset({
 _CLOCK_TYPES: frozenset[str] = frozenset({
     "UTCTimeOnly_t", "LocalMktTime_t",
 })
+_MINMAX_TYPES: frozenset[str] = frozenset({
+    "Int_t", "Float_t", "Qty_t", "Price_t", "PriceOffset_t", "Amt_t", "Percentage_t",
+})
 
 
 def _control_type(param: ParameterDef) -> str:
@@ -108,7 +111,7 @@ def build_fixatdl(
     for param in algo.parameters:
         _add_parameter(strategy, param)
 
-    if any(p.default_value is not None for p in algo.parameters):
+    if any(p.default_value is not None or p.increment is not None for p in algo.parameters):
         _add_strategy_layout(strategy, algo.parameters)
 
     return root
@@ -126,6 +129,12 @@ def _add_parameter(parent: etree._Element, param: ParameterDef) -> None:
     elem.set(f"{{{XSI_NS}}}type", f"core:{param.type}")
     elem.set("fixTag", str(param.fix_tag))
     elem.set("mutableOnCxlRpl", "true")
+
+    if param.type in _MINMAX_TYPES:
+        if param.min_value is not None:
+            elem.set("minValue", param.min_value)
+        if param.max_value is not None:
+            elem.set("maxValue", param.max_value)
 
     for wire_value in param.supported_values:
         enum_id = _sanitize_enum_id(wire_value)
@@ -153,6 +162,9 @@ def _add_strategy_layout(strategy: etree._Element, params: list[ParameterDef]) -
                 item = etree.SubElement(ctrl, _lqname("ListItem"))
                 item.set("enumID", enum_id)
                 item.set("uiRep", wire_value)
+
+        if ctrl_type == "SingleSpinner_t" and param.increment is not None:
+            ctrl.set("increment", param.increment)
 
         if param.default_value is not None:
             if ctrl_type == "DropDownList_t":

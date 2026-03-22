@@ -264,3 +264,46 @@ class TestCliHtmlFlag:
         assert content.startswith("<!DOCTYPE html>")
         assert "TestAlgo" in content
         assert "param1" in content
+
+
+# ---------------------------------------------------------------------------
+# increment → HTML step attribute
+# ---------------------------------------------------------------------------
+
+class TestIncrementStep:
+    """Verify that increment on a SingleSpinner_t Control becomes step= in HTML."""
+
+    def _build_html(self, type_: str, increment: str | None = None,
+                    default: str | None = None) -> str:
+        from converter.builder import build_fixatdl
+        from converter.parser import AlgoDef, ParameterDef
+        param = ParameterDef(
+            name="myParam", description="", type=type_, fix_tag=5001,
+            supported_values=[], default_value=default, increment=increment,
+        )
+        root = build_fixatdl(AlgoDef("A", [param]))
+        return render_html(root)
+
+    def test_int_uses_increment_as_step(self):
+        out = self._build_html("Int_t", increment="5", default="10")
+        assert 'step="5"' in out
+
+    def test_int_default_step_is_1(self):
+        out = self._build_html("Int_t", default="10")
+        assert 'step="1"' in out
+
+    def test_float_increment_overrides_any_step(self):
+        out = self._build_html("Float_t", increment="0.01", default="0.5")
+        assert 'step="0.01"' in out
+
+    def test_no_increment_float_step_is_any(self):
+        out = self._build_html("Float_t", default="0.5")
+        assert 'step="any"' in out
+
+    def test_percentage_increment_sets_step(self):
+        out = self._build_html("Percentage_t", increment="0.5", default="10")
+        assert 'step="0.5"' in out
+
+    def test_percentage_no_increment_step_is_any(self):
+        out = self._build_html("Percentage_t", default="10")
+        assert 'step="any"' in out

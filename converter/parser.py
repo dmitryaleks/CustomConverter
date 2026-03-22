@@ -15,6 +15,9 @@ class ParameterDef:
     fix_tag: int
     supported_values: list[str] = field(default_factory=list)
     default_value: str | None = None
+    min_value: str | None = None
+    max_value: str | None = None
+    increment: str | None = None
 
 
 @dataclass
@@ -93,6 +96,9 @@ def parse_json(path: str | Path) -> AlgoDef:
                 fix_tag=int(param_body["FIXTAGNUMBER"]),
                 supported_values=list(param_body.get("SUPPORTED_VALUES") or []),
                 default_value=param_body.get("DEFAULT_VALUE") or None,
+                min_value=param_body.get("MIN_VALUE") or None,
+                max_value=param_body.get("MAX_VALUE") or None,
+                increment=param_body.get("INCREMENT") or None,
             )
         )
 

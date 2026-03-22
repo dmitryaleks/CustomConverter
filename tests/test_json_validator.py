@@ -762,3 +762,92 @@ class TestJSON26:
         issues = validate_data(_p26(99))
         errs = [i for i in issues if i.rule_id == "JSON-26"]
         assert errs and errs[0].severity == "error"
+
+
+# ---------------------------------------------------------------------------
+# Helpers for JSON-27 / JSON-28
+# ---------------------------------------------------------------------------
+
+def _p_minmax(min_val=None, max_val=None, inc=None):
+    body = {"NAME": "p", "TYPE": "Float_t", "FIXTAGNUMBER": 5001}
+    if min_val is not None:
+        body["MIN_VALUE"] = min_val
+    if max_val is not None:
+        body["MAX_VALUE"] = max_val
+    if inc is not None:
+        body["INCREMENT"] = inc
+    return {"MyAlgo": {"PARAMETERS": [{"P": body}]}}
+
+
+# ---------------------------------------------------------------------------
+# JSON-27 — MIN_VALUE / MAX_VALUE must be numeric; min ≤ max
+# ---------------------------------------------------------------------------
+
+class TestJSON27:
+    def test_valid_min_max_no_error(self):
+        issues = validate_data(_p_minmax(min_val="0", max_val="1"))
+        assert "JSON-27" not in _rule_ids(issues)
+
+    def test_absent_no_error(self):
+        issues = validate_data(_p_minmax())
+        assert "JSON-27" not in _rule_ids(issues)
+
+    def test_min_value_non_numeric_string(self):
+        issues = validate_data(_p_minmax(min_val="abc", max_val="1"))
+        assert "JSON-27" in _rule_ids(issues)
+
+    def test_max_value_non_numeric_string(self):
+        issues = validate_data(_p_minmax(min_val="0", max_val="xyz"))
+        assert "JSON-27" in _rule_ids(issues)
+
+    def test_min_greater_than_max(self):
+        issues = validate_data(_p_minmax(min_val="5", max_val="1"))
+        assert "JSON-27" in _rule_ids(issues)
+
+    def test_equal_min_max_ok(self):
+        issues = validate_data(_p_minmax(min_val="1", max_val="1"))
+        assert "JSON-27" not in _rule_ids(issues)
+
+    def test_not_a_json25_warning(self):
+        issues = validate_data(_p_minmax(min_val="0", max_val="1"))
+        assert "JSON-25" not in _rule_ids(issues)
+
+    def test_severity_is_error(self):
+        issues = validate_data(_p_minmax(min_val="bad"))
+        errs = [i for i in issues if i.rule_id == "JSON-27"]
+        assert errs and errs[0].severity == "error"
+
+
+# ---------------------------------------------------------------------------
+# JSON-28 — INCREMENT must be a positive numeric string
+# ---------------------------------------------------------------------------
+
+class TestJSON28:
+    def test_valid_increment_no_error(self):
+        issues = validate_data(_p_minmax(inc="0.01"))
+        assert "JSON-28" not in _rule_ids(issues)
+
+    def test_absent_no_error(self):
+        issues = validate_data(_p_minmax())
+        assert "JSON-28" not in _rule_ids(issues)
+
+    def test_increment_zero_fails(self):
+        issues = validate_data(_p_minmax(inc="0"))
+        assert "JSON-28" in _rule_ids(issues)
+
+    def test_increment_negative_fails(self):
+        issues = validate_data(_p_minmax(inc="-1"))
+        assert "JSON-28" in _rule_ids(issues)
+
+    def test_increment_non_numeric_fails(self):
+        issues = validate_data(_p_minmax(inc="fast"))
+        assert "JSON-28" in _rule_ids(issues)
+
+    def test_not_a_json25_warning(self):
+        issues = validate_data(_p_minmax(inc="1"))
+        assert "JSON-25" not in _rule_ids(issues)
+
+    def test_severity_is_error(self):
+        issues = validate_data(_p_minmax(inc="0"))
+        errs = [i for i in issues if i.rule_id == "JSON-28"]
+        assert errs and errs[0].severity == "error"

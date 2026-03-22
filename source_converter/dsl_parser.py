@@ -288,6 +288,9 @@ def _parse_dsl_impl(
                 fix_tag=fix_tag,
                 supported_values=supported_values,
                 default_value=default_value,
+                min_value=resolved.get("min_value"),
+                max_value=resolved.get("max_value"),
+                increment=resolved.get("increment"),
             )
         )
 

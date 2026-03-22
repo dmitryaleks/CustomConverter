@@ -204,3 +204,37 @@ class TestParseJsonDefaultValue:
         algo = parse_json(path)
         assert algo.parameters[0].default_value == "X"
         assert algo.parameters[1].default_value is None
+
+
+class TestParseJsonMinMaxIncrement:
+    def test_min_max_increment_parsed(self, tmp_path):
+        data = {"A": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "Float_t", "FIXTAGNUMBER": 5001,
+                   "MIN_VALUE": "0", "MAX_VALUE": "1", "INCREMENT": "0.01"}}
+        ]}}
+        path = _write_json(data, tmp_path)
+        algo = parse_json(path)
+        assert algo.parameters[0].min_value == "0"
+        assert algo.parameters[0].max_value == "1"
+        assert algo.parameters[0].increment == "0.01"
+
+    def test_min_max_absent_is_none(self, tmp_path):
+        data = {"A": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001}}
+        ]}}
+        path = _write_json(data, tmp_path)
+        algo = parse_json(path)
+        assert algo.parameters[0].min_value is None
+        assert algo.parameters[0].max_value is None
+        assert algo.parameters[0].increment is None
+
+    def test_increment_only(self, tmp_path):
+        data = {"A": {"PARAMETERS": [
+            {"P": {"NAME": "p", "TYPE": "Qty_t", "FIXTAGNUMBER": 5001,
+                   "INCREMENT": "100"}}
+        ]}}
+        path = _write_json(data, tmp_path)
+        algo = parse_json(path)
+        assert algo.parameters[0].min_value is None
+        assert algo.parameters[0].max_value is None
+        assert algo.parameters[0].increment == "100"

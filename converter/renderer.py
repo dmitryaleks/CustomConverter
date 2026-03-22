@@ -334,12 +334,27 @@ def _get_init_values(strategy_elem: etree._Element) -> dict[str, str]:
     return result
 
 
+def _get_increments(strategy_elem: etree._Element) -> dict[str, str]:
+    """Return {parameterRef: increment} from the StrategyLayout Controls, if present."""
+    result: dict[str, str] = {}
+    for child in strategy_elem:
+        if child.tag == _LAYOUT_TAG:
+            for ctrl in child.iter(_CONTROL_TAG):
+                ref = ctrl.get("parameterRef")
+                inc = ctrl.get("increment")
+                if ref and inc is not None:
+                    result[ref] = inc
+            break
+    return result
+
+
 def _build_control(
     name: str,
     xsi_type: str,
     enum_pairs: list[tuple[str, str]],
     param_elem: etree._Element,
     init_value: str | None = None,
+    increment: str | None = None,
 ) -> str:
     """Return an HTML control string for the given parameter element."""
     bare = _bare_type(xsi_type)
@@ -400,10 +415,11 @@ def _build_control(
     if bare in _INT_TYPES:
         min_val = param_elem.get("minValue", "")
         max_val = param_elem.get("maxValue", "")
+        step = html.escape(increment, quote=True) if increment is not None else "1"
         extra = f' min="{html.escape(min_val, quote=True)}"' if min_val else ""
         extra += f' max="{html.escape(max_val, quote=True)}"' if max_val else ""
         return (
-            f'<input type="number" step="1" id="{esc_name}"'
+            f'<input type="number" step="{step}" id="{esc_name}"'
             f' name="{esc_name}"{extra}{val_attr}{req_attr}>'
         )
 
@@ -411,7 +427,9 @@ def _build_control(
         min_val = param_elem.get("minValue", "")
         max_val = param_elem.get("maxValue", "")
         precision = param_elem.get("precision", "")
-        if precision:
+        if increment is not None:
+            step = html.escape(increment, quote=True)
+        elif precision:
             try:
                 p = int(precision)
                 step = f"0.{'0' * (p - 1)}1" if p > 0 else "1"
@@ -429,9 +447,10 @@ def _build_control(
     if bare == "Percentage_t":
         multiply = param_elem.get("multiplyBy100", "false").lower() == "true"
         max_v = "1" if multiply else "100"
+        step = html.escape(increment, quote=True) if increment is not None else "any"
         suffix = '<span class="unit">%</span>'
         return (
-            f'<input type="number" id="{esc_name}" name="{esc_name}"'
+            f'<input type="number" step="{step}" id="{esc_name}" name="{esc_name}"'
             f' min="0" max="{max_v}"{val_attr}{req_attr}> {suffix}'
         )
 
@@ -508,6 +527,7 @@ def _render_strategy(strategy_elem: etree._Element, strategy_index: int) -> str:
     meta_html = " | ".join(meta_parts)
 
     init_values = _get_init_values(strategy_elem)
+    increments   = _get_increments(strategy_elem)
 
     field_groups: list[str] = []
     for child in strategy_elem:
@@ -524,6 +544,7 @@ def _render_strategy(strategy_elem: etree._Element, strategy_index: int) -> str:
         control_html = _build_control(
             param_name, xsi_type, enum_pairs, child,
             init_value=init_values.get(param_name),
+            increment=increments.get(param_name),
         )
 
         # Inject data-fix-tag onto the root control element so JS can read it
