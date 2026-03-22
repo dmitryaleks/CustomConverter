@@ -23,7 +23,8 @@
     <Parameter id="AllowOddLots" dataType="boolean" tag="6009" default="false">
       <Description>Allow odd-lot fills</Description>
     </Parameter>
-    <Parameter id="MaxPctVolume" dataType="percent" tag="6010" default="15%">
+    <Parameter id="MaxPctVolume" dataType="percent" tag="6010" default="15%"
+               minValue="1" maxValue="30" increment="1">
       <Description>Maximum participation rate as percentage of market volume</Description>
     </Parameter>
   </Parameters>

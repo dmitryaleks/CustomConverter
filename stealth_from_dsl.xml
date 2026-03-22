@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+  <Strategy name="STEALTH" uiRep="STEALTH" wireValue="STEALTH" fixMsgType="D" providerID="CustomProvider" version="1">
+    <!-- StartTime: Scheduled start time for algo execution window (UTC) -->
+    <Parameter name="StartTime" xsi:type="core:UTCTimeOnly_t" fixTag="6001" mutableOnCxlRpl="true"/>
+    <!-- EndTime: Scheduled end time for algo execution window (UTC) -->
+    <Parameter name="EndTime" xsi:type="core:UTCTimeOnly_t" fixTag="6002" mutableOnCxlRpl="true"/>
+    <!-- Urgency: Execution urgency level controlling aggressiveness -->
+    <Parameter name="Urgency" xsi:type="core:String_t" fixTag="6003" mutableOnCxlRpl="true">
+      <EnumPair enumID="Low" wireValue="Low"/>
+      <EnumPair enumID="Medium" wireValue="Medium"/>
+      <EnumPair enumID="High" wireValue="High"/>
+    </Parameter>
+    <!-- VenueFocus: Preferred liquidity pool selection strategy -->
+    <Parameter name="VenueFocus" xsi:type="core:String_t" fixTag="6008" mutableOnCxlRpl="true">
+      <EnumPair enumID="DarkOnly" wireValue="DarkOnly"/>
+      <EnumPair enumID="LitOnly" wireValue="LitOnly"/>
+      <EnumPair enumID="Mixed" wireValue="Mixed"/>
+      <EnumPair enumID="SmartRoute" wireValue="SmartRoute"/>
+    </Parameter>
+    <!-- AllowOddLots: Allow odd-lot fills -->
+    <Parameter name="AllowOddLots" xsi:type="core:Boolean_t" fixTag="6009" mutableOnCxlRpl="true"/>
+    <!-- MaxPctVolume: Maximum participation rate as percentage of market volume -->
+    <Parameter name="MaxPctVolume" xsi:type="core:Percentage_t" fixTag="6010" mutableOnCxlRpl="true" minValue="1" maxValue="30"/>
+    <lay:StrategyLayout>
+      <lay:StrategyPanel>
+        <lay:Control ID="StartTime" xsi:type="lay:Clock_t" parameterRef="StartTime" label="StartTime" initValue="09:30:00"/>
+        <lay:Control ID="EndTime" xsi:type="lay:Clock_t" parameterRef="EndTime" label="EndTime" initValue="16:00:00"/>
+        <lay:Control ID="Urgency" xsi:type="lay:DropDownList_t" parameterRef="Urgency" label="Urgency" initValue="Medium">
+          <lay:ListItem enumID="Low" uiRep="Low"/>
+          <lay:ListItem enumID="Medium" uiRep="Medium"/>
+          <lay:ListItem enumID="High" uiRep="High"/>
+        </lay:Control>
+        <lay:Control ID="VenueFocus" xsi:type="lay:DropDownList_t" parameterRef="VenueFocus" label="VenueFocus" initValue="SmartRoute">
+          <lay:ListItem enumID="DarkOnly" uiRep="DarkOnly"/>
+          <lay:ListItem enumID="LitOnly" uiRep="LitOnly"/>
+          <lay:ListItem enumID="Mixed" uiRep="Mixed"/>
+          <lay:ListItem enumID="SmartRoute" uiRep="SmartRoute"/>
+        </lay:Control>
+        <lay:Control ID="AllowOddLots" xsi:type="lay:CheckBox_t" parameterRef="AllowOddLots" label="AllowOddLots" initValue="false"/>
+        <lay:Control ID="MaxPctVolume" xsi:type="lay:SingleSpinner_t" parameterRef="MaxPctVolume" label="MaxPctVolume" increment="1" initValue="15"/>
+      </lay:StrategyPanel>
+    </lay:StrategyLayout>
+  </Strategy>
+</Strategies>

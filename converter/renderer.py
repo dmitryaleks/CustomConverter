@@ -446,12 +446,15 @@ def _build_control(
 
     if bare == "Percentage_t":
         multiply = param_elem.get("multiplyBy100", "false").lower() == "true"
-        max_v = "1" if multiply else "100"
+        default_max = "1" if multiply else "100"
+        min_val = param_elem.get("minValue", "0")
+        max_val = param_elem.get("maxValue", default_max)
         step = html.escape(increment, quote=True) if increment is not None else "any"
         suffix = '<span class="unit">%</span>'
         return (
             f'<input type="number" step="{step}" id="{esc_name}" name="{esc_name}"'
-            f' min="0" max="{max_v}"{val_attr}{req_attr}> {suffix}'
+            f' min="{html.escape(min_val, quote=True)}"'
+            f' max="{html.escape(max_val, quote=True)}"{val_attr}{req_attr}> {suffix}'
         )
 
     if bare == "Char_t":
