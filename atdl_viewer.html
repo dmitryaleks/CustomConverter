@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATDL Interactive Viewer</title>
+  <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, sans-serif;
+  background: #f5f5f5;
+  color: #333;
+  padding: 1.5rem;
+}
+h1 { font-size: 1.6rem; margin-bottom: 0.25rem; color: #1a1a2e; }
+h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #1a1a2e; }
+.meta { color: #666; font-size: 0.875rem; margin-bottom: 1.5rem; }
+
+/* ---- drop zone ---- */
+#drop-zone {
+  border: 3px dashed #aab;
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  background: #fff;
+  transition: border-color .2s, background .2s;
+  cursor: pointer;
+  max-width: 640px;
+  margin: 2rem auto;
+}
+#drop-zone.drag-over {
+  border-color: #2980b9;
+  background: #eaf2f8;
+}
+#drop-zone p { font-size: 1.1rem; color: #555; margin-bottom: 1rem; }
+#drop-zone .hint { font-size: 0.85rem; color: #999; }
+#file-input { display: none; }
+#drop-zone .browse-btn {
+  display: inline-block;
+  padding: 0.5rem 1.4rem;
+  background: #2980b9;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-bottom: 0.8rem;
+}
+#drop-zone .browse-btn:hover { background: #1f6395; }
+
+/* ---- toolbar ---- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.toolbar .file-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #1a1a2e;
+  margin-right: auto;
+}
+.toolbar button {
+  padding: 0.4rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  background: #eee;
+  color: #333;
+}
+.toolbar button:hover { background: #ddd; }
+.toolbar .btn-primary { background: #2980b9; color: #fff; }
+.toolbar .btn-primary:hover { background: #1f6395; }
+
+/* ---- strategy section ---- */
+.strategy-section {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+}
+fieldset { border: none; padding: 0; }
+legend { font-size: 1.1rem; font-weight: 600; color: #1a1a2e; margin-bottom: 1rem; }
+.field-group {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0.3rem 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+label { font-weight: 500; padding-top: 0.4rem; word-break: break-word; }
+.control-wrap { display: flex; align-items: center; gap: 0.4rem; }
+input, select, textarea {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+input[readonly] { background: #f0f0f0; color: #666; cursor: not-allowed; }
+input[type=checkbox] { width: auto; flex-shrink: 0; }
+textarea { resize: vertical; min-height: 5rem; }
+.unit { color: #666; font-size: 0.85rem; white-space: nowrap; }
+.description {
+  color: #888;
+  font-size: 0.8rem;
+  grid-column: 2;
+  margin-top: -0.1rem;
+}
+.field-error {
+  color: #c0392b;
+  font-size: 0.8rem;
+  grid-column: 2;
+  min-height: 1em;
+}
+input:required, select:required, textarea:required {
+  border-left: 3px solid #e67e22;
+}
+input[aria-invalid=true],
+select[aria-invalid=true],
+textarea[aria-invalid=true] {
+  border-color: #c0392b;
+  outline: 2px solid #f5b7b1;
+}
+.actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+button {
+  padding: 0.5rem 1.2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+button[type=submit] { background: #2980b9; color: #fff; }
+button[type=submit]:hover { background: #1f6395; }
+button[type=reset] { background: #eee; color: #333; }
+button[type=reset]:hover { background: #ddd; }
+
+/* ---- summary / FIX sections ---- */
+.result-section {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+.result-section table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.result-section th, .result-section td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #eee;
+}
+.result-section th { font-weight: 600; background: #f8f8f8; }
+.fix-meta { color: #888; font-size: 0.8rem; margin-bottom: 1rem; }
+.fix-meta code {
+  background: #f0f0f0;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-family: monospace;
+}
+.fix-pre {
+  background: #1a1a2e;
+  color: #a8ff78;
+  font-family: 'Cascadia Code', 'Fira Mono', 'Consolas', monospace;
+  font-size: 0.82rem;
+  padding: 1rem 1.2rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+.btn-success { background: #27ae60; color: #fff; }
+.btn-success:hover { background: #1e8449; }
+
+/* ---- FIX import section ---- */
+.fix-import-section {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.fix-import-section textarea {
+  font-family: 'Cascadia Code', 'Fira Mono', 'Consolas', monospace;
+  font-size: 0.85rem;
+  min-height: 4rem;
+  margin-bottom: 0.5rem;
+}
+.fix-import-section .hint { font-size: 0.8rem; color: #999; margin-bottom: 0.8rem; }
+
+/* ---- alerts ---- */
+.alert {
+  padding: 0.7rem 1rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-top: 0.8rem;
+}
+.alert-warning { background: #fef9e7; border: 1px solid #f9e79f; color: #7d6608; }
+.alert-error { background: #fdedec; border: 1px solid #f5b7b1; color: #922b21; }
+.alert-success { background: #eafaf1; border: 1px solid #a9dfbf; color: #1e8449; }
+.alert ul { margin: 0.4rem 0 0 1.2rem; }
+
+/* ---- responsive ---- */
+@media (max-width: 600px) {
+  .field-group { grid-template-columns: 1fr; }
+  .description, .field-error { grid-column: 1; }
+}
+  </style>
+</head>
+<body>
+
+<!-- ===== File loading state ===== -->
+<div id="drop-zone">
+  <p>Load FIXATDL 1.1 XML File</p>
+  <button class="browse-btn" type="button" id="browse-btn">Choose File&hellip;</button>
+  <input type="file" id="file-input" accept=".xml,text/xml,application/xml">
+  <p class="hint">or drag &amp; drop an .xml file here</p>
+</div>
+
+<!-- ===== Main content (hidden until file loaded) ===== -->
+<div id="app" hidden>
+  <div class="toolbar">
+    <span class="file-name" id="file-name-display"></span>
+    <button type="button" id="load-another-btn">Load Another File</button>
+  </div>
+
+  <!-- Strategies are rendered here -->
+  <div id="strategies-container"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ======== CONSTANTS ======== */
+  var CORE_NS = 'http://www.fixprotocol.org/ATDL-1-1/Core';
+  var XSI_NS  = 'http://www.w3.org/2001/XMLSchema-instance';
+  var LAY_NS  = 'http://www.fixprotocol.org/ATDL-1-1/Layout';
+
+  var INT_TYPES   = ['Int_t','SeqNum_t','Length_t','NumInGroup_t','TagNum_t'];
+  var FLOAT_TYPES = ['Float_t','Qty_t','Price_t','PriceOffset_t','Amt_t','Numeric_t'];
+  var MULTI_TYPES = ['MultipleCharValue_t','MultipleStringValue_t'];
+
+  /* ======== HELPERS ======== */
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+  function escAttr(s) {
+    return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function pad2(n) { return n < 10 ? '0' + n : String(n); }
+
+  function bareType(xsiType) {
+    if (!xsiType) return 'String_t';
+    if (xsiType.indexOf(':') !== -1) return xsiType.split(':').pop();
+    return xsiType;
+  }
+
+  function childrenByTagNS(parent, ns, localName) {
+    var result = [];
+    for (var i = 0; i < parent.childNodes.length; i++) {
+      var c = parent.childNodes[i];
+      if (c.nodeType === 1 && c.localName === localName && c.namespaceURI === ns)
+        result.push(c);
+    }
+    return result;
+  }
+
+  function getEnumPairs(paramElem) {
+    var pairs = [];
+    var children = childrenByTagNS(paramElem, CORE_NS, 'EnumPair');
+    children.forEach(function (ep) {
+      pairs.push({
+        enumID:    ep.getAttribute('enumID') || '',
+        wireValue: ep.getAttribute('wireValue') || ''
+      });
+    });
+    return pairs;
+  }
+
+  function getDescription(paramElem) {
+    /* Check previous sibling for a comment node */
+    var prev = paramElem.previousSibling;
+    while (prev && prev.nodeType === 3) prev = prev.previousSibling; /* skip text nodes */
+    if (prev && prev.nodeType === 8) { /* comment node */
+      var text = prev.textContent || '';
+      var idx = text.indexOf(':');
+      if (idx !== -1) return text.substring(idx + 1).trim();
+      return text.trim();
+    }
+    return '';
+  }
+
+  function getControlAttrMap(strategyElem, attrName) {
+    var result = {};
+    var layouts = childrenByTagNS(strategyElem, LAY_NS, 'StrategyLayout');
+    if (layouts.length === 0) return result;
+    var controls = layouts[0].getElementsByTagNameNS(LAY_NS, 'Control');
+    for (var i = 0; i < controls.length; i++) {
+      var ref = controls[i].getAttribute('parameterRef');
+      var val = controls[i].getAttribute(attrName);
+      if (ref && val !== null) result[ref] = val;
+    }
+    return result;
+  }
+
+  /* ======== BUILD HTML CONTROL ======== */
+  function buildControl(name, xsiType, enumPairs, paramElem, initValue, increment) {
+    var bare = bareType(xsiType);
+    var eName = escAttr(name);
+    var constValue = paramElem.getAttribute('constValue');
+    var required = paramElem.getAttribute('use') === 'required';
+    var reqAttr = required ? ' required' : '';
+
+    if (constValue !== null) {
+      return '<input type="text" id="'+eName+'" name="'+eName+'" value="'+escAttr(constValue)+'" readonly>';
+    }
+
+    if (enumPairs.length > 0) {
+      var multiAttr = (MULTI_TYPES.indexOf(bare) !== -1) ? ' multiple' : '';
+      var selectedWire = null;
+      if (initValue !== null) {
+        for (var i = 0; i < enumPairs.length; i++) {
+          if (enumPairs[i].enumID === initValue) { selectedWire = enumPairs[i].wireValue; break; }
+        }
+      }
+      var opts = '<option value="">-- select --</option>';
+      enumPairs.forEach(function (ep) {
+        var sel = (ep.wireValue === selectedWire) ? ' selected' : '';
+        opts += '<option value="'+escAttr(ep.wireValue)+'" data-enum-id="'+escAttr(ep.enumID)+'"'+sel+'>'+esc(ep.wireValue)+'</option>';
+      });
+      return '<select id="'+eName+'" name="'+eName+'"'+multiAttr+reqAttr+'>'+opts+'</select>';
+    }
+
+    var valAttr = (initValue !== null) ? ' value="'+escAttr(initValue)+'"' : '';
+
+    if (bare === 'String_t') {
+      var maxLen = paramElem.getAttribute('maxLength');
+      var minLen = paramElem.getAttribute('minLength');
+      var extra = maxLen ? ' maxlength="'+escAttr(maxLen)+'"' : '';
+      extra += minLen ? ' minlength="'+escAttr(minLen)+'"' : '';
+      return '<input type="text" id="'+eName+'" name="'+eName+'"'+extra+valAttr+reqAttr+'>';
+    }
+    if (INT_TYPES.indexOf(bare) !== -1) {
+      var step = increment || '1';
+      var minV = paramElem.getAttribute('minValue');
+      var maxV = paramElem.getAttribute('maxValue');
+      extra = minV ? ' min="'+escAttr(minV)+'"' : '';
+      extra += maxV ? ' max="'+escAttr(maxV)+'"' : '';
+      return '<input type="number" step="'+escAttr(step)+'" id="'+eName+'" name="'+eName+'"'+extra+valAttr+reqAttr+'>';
+    }
+    if (FLOAT_TYPES.indexOf(bare) !== -1) {
+      var prec = paramElem.getAttribute('precision');
+      if (increment) step = increment;
+      else if (prec) {
+        var p = parseInt(prec, 10);
+        step = (p > 0) ? ('0.' + '0'.repeat(p-1) + '1') : '1';
+      } else step = 'any';
+      minV = paramElem.getAttribute('minValue');
+      maxV = paramElem.getAttribute('maxValue');
+      extra = minV ? ' min="'+escAttr(minV)+'"' : '';
+      extra += maxV ? ' max="'+escAttr(maxV)+'"' : '';
+      return '<input type="number" step="'+escAttr(step)+'" id="'+eName+'" name="'+eName+'"'+extra+valAttr+reqAttr+'>';
+    }
+    if (bare === 'Percentage_t') {
+      var mul = (paramElem.getAttribute('multiplyBy100') || '').toLowerCase() === 'true';
+      var defMax = mul ? '1' : '100';
+      minV = paramElem.getAttribute('minValue') || '0';
+      maxV = paramElem.getAttribute('maxValue') || defMax;
+      step = increment || 'any';
+      return '<input type="number" step="'+escAttr(step)+'" id="'+eName+'" name="'+eName+'" min="'+escAttr(minV)+'" max="'+escAttr(maxV)+'"'+valAttr+reqAttr+'> <span class="unit">%</span>';
+    }
+    if (bare === 'Char_t')
+      return '<input type="text" maxlength="1" id="'+eName+'" name="'+eName+'"'+valAttr+reqAttr+'>';
+    if (bare === 'Boolean_t') {
+      var tv = paramElem.getAttribute('trueWireValue') || 'Y';
+      var fv = paramElem.getAttribute('falseWireValue') || 'N';
+      var chk = (initValue && ['true','y','1'].indexOf(initValue.toLowerCase()) !== -1) ? ' checked' : '';
+      return '<input type="checkbox" id="'+eName+'" name="'+eName+'" data-true-value="'+escAttr(tv)+'" data-false-value="'+escAttr(fv)+'"'+chk+'>';
+    }
+    if (bare === 'Currency_t')
+      return '<input type="text" maxlength="3" pattern="[A-Z]{3}" id="'+eName+'" name="'+eName+'"'+valAttr+reqAttr+'>';
+    if (bare === 'Exchange_t')
+      return '<input type="text" maxlength="4" id="'+eName+'" name="'+eName+'"'+valAttr+reqAttr+'>';
+    if (bare === 'Month-Year_t')
+      return '<input type="month" id="'+eName+'" name="'+eName+'"'+valAttr+reqAttr+'>';
+    if (bare === 'UTCTimeStamp_t')
+      return '<input type="datetime-local" id="'+eName+'" name="'+eName+'"'+valAttr+reqAttr+'>';
+    if (bare === 'UTCTimeOnly_t' || bare === 'LocalMktTime_t')
+      return '<input type="time" id="'+eName+'" name="'+eName+'"'+valAttr+reqAttr+'>';
+    if (bare === 'UTCDate_t')
+      return '<input type="date" id="'+eName+'" name="'+eName+'"'+valAttr+reqAttr+'>';
+    if (bare === 'Data_t') {
+      var inner = initValue !== null ? esc(initValue) : '';
+      return '<textarea id="'+eName+'" name="'+eName+'"'+reqAttr+'>'+inner+'</textarea>';
+    }
+    return '<input type="text" id="'+eName+'" name="'+eName+'"'+valAttr+reqAttr+'>';
+  }
+
+  /* ======== PARSE ATDL XML ======== */
+  function parseATDL(xmlText) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(xmlText, 'text/xml');
+    var parseError = doc.getElementsByTagName('parsererror');
+    if (parseError.length > 0)
+      throw new Error('XML parse error: ' + parseError[0].textContent);
+
+    var root = doc.documentElement;
+    /* Accept <Strategies> in the core namespace */
+    if (root.localName !== 'Strategies')
+      throw new Error('Root element must be <Strategies>, found <' + root.localName + '>');
+
+    var sit = root.getAttribute('strategyIdentifierTag') || '';
+    var strategies = childrenByTagNS(root, CORE_NS, 'Strategy');
+    if (strategies.length === 0)
+      throw new Error('No <Strategy> elements found in the file.');
+
+    return { sit: sit, strategies: strategies };
+  }
+
+  /* ======== RENDER STRATEGY ======== */
+  function renderStrategy(strategyElem, index, sit) {
+    var name = strategyElem.getAttribute('name') || 'Unknown';
+    var providerID = strategyElem.getAttribute('providerID') || '';
+    var version = strategyElem.getAttribute('version') || '';
+
+    var initValues = getControlAttrMap(strategyElem, 'initValue');
+    var increments = getControlAttrMap(strategyElem, 'increment');
+
+    var metaParts = [];
+    if (providerID) metaParts.push('Provider: ' + esc(providerID));
+    if (version) metaParts.push('Version: ' + esc(version));
+    if (sit) metaParts.push('Strategy Identifier Tag: ' + esc(sit));
+
+    var params = childrenByTagNS(strategyElem, CORE_NS, 'Parameter');
+    var fieldsHtml = '';
+    params.forEach(function (p) {
+      var pName = p.getAttribute('name') || '';
+      var xsiType = p.getAttributeNS(XSI_NS, 'type') || 'core:String_t';
+      var enumPairs = getEnumPairs(p);
+      var desc = getDescription(p);
+      var fixTag = p.getAttribute('fixTag') || '';
+
+      var controlHtml = buildControl(
+        pName, xsiType, enumPairs, p,
+        initValues[pName] || null,
+        increments[pName] || null
+      );
+
+      /* Inject data-fix-tag */
+      if (fixTag) {
+        ['<input ','<select ','<textarea '].forEach(function (prefix) {
+          if (controlHtml.indexOf(prefix) === 0) {
+            controlHtml = prefix + 'data-fix-tag="'+escAttr(fixTag)+'" ' + controlHtml.substring(prefix.length);
+          }
+        });
+      }
+
+      var descHtml = desc
+        ? '<span class="description">'+esc(desc)+'</span>\n' : '';
+      fieldsHtml +=
+        '<div class="field-group">\n' +
+        '  <label for="'+escAttr(pName)+'">'+esc(pName)+'</label>\n' +
+        '  <div class="control-wrap">'+controlHtml+'</div>\n' +
+        descHtml +
+        '  <span class="field-error" id="s'+index+'-'+escAttr(pName)+'-error" aria-live="polite"></span>\n' +
+        '</div>\n';
+    });
+
+    var formId = 'atdl-form-' + index;
+    var summaryId = 'summary-' + index;
+    var fixMsgId = 'fix-message-' + index;
+    var importId = 'fix-import-' + index;
+
+    return (
+      '<section class="strategy-section" data-strategy-index="'+index+'">\n' +
+      '  <h1>Strategy: '+esc(name)+'</h1>\n' +
+      '  <p class="meta">'+metaParts.join(' | ')+'</p>\n' +
+
+      /* FIX Import */
+      '  <div class="fix-import-section" id="'+importId+'">\n' +
+      '    <h2>Import FIX Message</h2>\n' +
+      '    <p class="hint">Paste a FIX message (tag=value pairs delimited by <code>|</code> or SOH). Matching tags will populate the form below.</p>\n' +
+      '    <textarea id="'+importId+'-input" placeholder="e.g. 35=D|49=SENDER|6001=09:30:00|6007=Bullish|..."></textarea>\n' +
+      '    <div class="actions">\n' +
+      '      <button type="button" class="btn-primary import-fix-btn" data-form="'+formId+'" data-import="'+importId+'">Import</button>\n' +
+      '    </div>\n' +
+      '    <div id="'+importId+'-alerts"></div>\n' +
+      '  </div>\n' +
+
+      /* Form */
+      '  <form id="'+formId+'" class="atdl-form" novalidate data-provider-id="'+escAttr(providerID)+'" data-strategy-name="'+escAttr(name)+'">\n' +
+      '    <input type="hidden" name="StrategyName" data-fix-tag="5010" value="'+escAttr(name)+'">\n' +
+      '    <fieldset>\n' +
+      '      <legend>'+esc(name)+' Parameters</legend>\n' +
+      fieldsHtml +
+      '    </fieldset>\n' +
+      '    <div class="actions">\n' +
+      '      <button type="submit">Validate &amp; Generate FIX</button>\n' +
+      '      <button type="reset">Reset</button>\n' +
+      '    </div>\n' +
+      '  </form>\n' +
+
+      /* Summary */
+      '  <div class="result-section" id="'+summaryId+'" hidden>\n' +
+      '    <h2>Order Parameter Summary</h2>\n' +
+      '    <table>\n' +
+      '      <thead><tr><th>Parameter</th><th>FIX Tag</th><th>Value</th></tr></thead>\n' +
+      '      <tbody id="'+summaryId+'-body"></tbody>\n' +
+      '    </table>\n' +
+      '  </div>\n' +
+
+      /* FIX Output */
+      '  <div class="result-section" id="'+fixMsgId+'" hidden>\n' +
+      '    <h2>Raw FIX 4.2 Message</h2>\n' +
+      '    <p class="fix-meta">Fields delimited by <code>|</code> (SOH substitute). Empty optional parameters are omitted.</p>\n' +
+      '    <pre id="'+fixMsgId+'-body" class="fix-pre"></pre>\n' +
+      '    <div class="actions">\n' +
+      '      <button type="button" class="btn-success copy-fix-btn" data-target="'+fixMsgId+'">Copy to Clipboard</button>\n' +
+      '    </div>\n' +
+      '  </div>\n' +
+
+      '</section>\n'
+    );
+  }
+
+  /* ======== BUILD FIX MESSAGE ======== */
+  function buildFixMsg(form) {
+    var SOH = '\x01';
+    var paramFields = [];
+    form.querySelectorAll('[data-fix-tag]').forEach(function (ctrl) {
+      var tag = ctrl.dataset.fixTag;
+      if (!tag) return;
+      var val;
+      if (ctrl.type === 'checkbox') {
+        val = ctrl.checked
+          ? (ctrl.dataset.trueValue || 'Y')
+          : (ctrl.dataset.falseValue || 'N');
+      } else {
+        val = ctrl.value;
+      }
+      if (val !== '') paramFields.push(tag + '=' + val);
+    });
+    var now = new Date();
+    var sendingTime = String(now.getFullYear())
+      + pad2(now.getMonth() + 1) + pad2(now.getDate())
+      + '-' + pad2(now.getHours()) + ':' + pad2(now.getMinutes())
+      + ':' + pad2(now.getSeconds());
+    var senderCompID = form.dataset.providerId || 'PROVIDER';
+    var bodyFields = [
+      '35=D',
+      '49=' + senderCompID,
+      '56=BROKER',
+      '34=1',
+      '52=' + sendingTime
+    ].concat(paramFields);
+    var bodyStr = bodyFields.join(SOH) + SOH;
+    var header = '8=FIX.4.2' + SOH + '9=' + bodyStr.length + SOH;
+    var raw = header + bodyStr;
+    var cs = 0;
+    for (var i = 0; i < raw.length; i++) cs += raw.charCodeAt(i);
+    raw += '10=' + ('00' + (cs % 256)).slice(-3) + SOH;
+    return raw;
+  }
+
+  /* ======== PARSE FIX MESSAGE ======== */
+  function parseFixMessage(text) {
+    /* Accept | or SOH as delimiter */
+    var normalized = text.replace(/\|/g, '\x01').replace(/\r?\n/g, '');
+    var parts = normalized.split('\x01').filter(function (s) { return s.length > 0; });
+    var fields = [];
+    parts.forEach(function (part) {
+      var eq = part.indexOf('=');
+      if (eq > 0) {
+        fields.push({ tag: part.substring(0, eq), value: part.substring(eq + 1) });
+      }
+    });
+    return fields;
+  }
+
+  function importFixToForm(form, fixFields) {
+    /* Build a map of tag → control(s) */
+    var tagMap = {};
+    form.querySelectorAll('[data-fix-tag]').forEach(function (ctrl) {
+      var tag = ctrl.dataset.fixTag;
+      if (tag) tagMap[tag] = ctrl;
+    });
+
+    var matched = [];
+    var unmatched = [];
+    /* Standard header tags to silently skip */
+    var headerTags = {'8':1,'9':1,'35':1,'49':1,'56':1,'34':1,'52':1,'10':1};
+
+    fixFields.forEach(function (f) {
+      if (headerTags[f.tag]) return; /* skip standard FIX header/trailer */
+
+      var ctrl = tagMap[f.tag];
+      if (!ctrl) {
+        unmatched.push(f);
+        return;
+      }
+
+      if (ctrl.type === 'checkbox') {
+        ctrl.checked = (f.value === (ctrl.dataset.trueValue || 'Y'));
+      } else if (ctrl.tagName === 'SELECT') {
+        /* Try to find option by value (wireValue) */
+        var found = false;
+        for (var i = 0; i < ctrl.options.length; i++) {
+          if (ctrl.options[i].value === f.value) {
+            ctrl.selectedIndex = i;
+            found = true;
+            break;
+          }
+        }
+        if (!found) unmatched.push({ tag: f.tag, value: f.value, reason: 'Value "'+f.value+'" not in dropdown options' });
+        else matched.push(f);
+        return;
+      } else {
+        ctrl.value = f.value;
+      }
+      matched.push(f);
+    });
+
+    return { matched: matched, unmatched: unmatched };
+  }
+
+  /* ======== GLOBAL STATE ======== */
+  var rawMessages = {}; /* formId → raw FIX string */
+
+  /* ======== FILE LOADING ======== */
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+  var browseBtn = document.getElementById('browse-btn');
+  var appDiv = document.getElementById('app');
+  var fileNameDisplay = document.getElementById('file-name-display');
+  var container = document.getElementById('strategies-container');
+
+  browseBtn.addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function () {
+    if (fileInput.files.length > 0) loadFile(fileInput.files[0]);
+  });
+
+  dropZone.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', function () {
+    dropZone.classList.remove('drag-over');
+  });
+  dropZone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    var files = e.dataTransfer.files;
+    if (files.length > 0) loadFile(files[0]);
+  });
+
+  document.getElementById('load-another-btn').addEventListener('click', function () {
+    appDiv.hidden = true;
+    dropZone.hidden = false;
+    container.innerHTML = '';
+    rawMessages = {};
+    fileInput.value = '';
+  });
+
+  function loadFile(file) {
+    if (!file.name.toLowerCase().endsWith('.xml')) {
+      alert('Please select an XML file.');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var parsed = parseATDL(e.target.result);
+        renderAll(parsed, file.name);
+      } catch (err) {
+        alert('Error loading ATDL: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function renderAll(parsed, fileName) {
+    fileNameDisplay.textContent = fileName;
+    container.innerHTML = '';
+    rawMessages = {};
+
+    var html = '';
+    for (var i = 0; i < parsed.strategies.length; i++) {
+      html += renderStrategy(parsed.strategies[i], i, parsed.sit);
+    }
+    container.innerHTML = html;
+
+    dropZone.hidden = true;
+    appDiv.hidden = false;
+
+    bindFormHandlers();
+  }
+
+  /* ======== FORM EVENT HANDLERS ======== */
+  function bindFormHandlers() {
+    /* Submit */
+    container.querySelectorAll('form.atdl-form').forEach(function (form) {
+      var idx = form.id.replace('atdl-form-', '');
+      var summaryId = 'summary-' + idx;
+      var fixMsgId = 'fix-message-' + idx;
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var controls = form.querySelectorAll('input:not([readonly]):not([type=hidden]), select, textarea');
+        var valid = true;
+        controls.forEach(function (ctrl) {
+          var errEl = document.getElementById('s'+idx+'-'+ctrl.id+'-error');
+          var isEmpty = ctrl.type === 'checkbox' ? false : !ctrl.value.trim();
+          if (ctrl.required && isEmpty) {
+            ctrl.setAttribute('aria-invalid', 'true');
+            if (errEl) errEl.textContent = 'This field is required.';
+            valid = false;
+          } else {
+            ctrl.removeAttribute('aria-invalid');
+            if (errEl) errEl.textContent = '';
+          }
+        });
+        if (!valid) return;
+
+        /* Summary table */
+        var summary = document.getElementById(summaryId);
+        var tbody = document.getElementById(summaryId + '-body');
+        tbody.innerHTML = '';
+        controls.forEach(function (ctrl) {
+          if (!ctrl.name) return;
+          var val;
+          if (ctrl.type === 'checkbox') {
+            val = ctrl.checked ? (ctrl.dataset.trueValue || 'true') : (ctrl.dataset.falseValue || 'false');
+          } else {
+            val = ctrl.value;
+          }
+          var tr = document.createElement('tr');
+          var tdName = document.createElement('td'); tdName.textContent = ctrl.name;
+          var tdTag  = document.createElement('td'); tdTag.textContent = ctrl.dataset.fixTag || '';
+          var tdVal  = document.createElement('td'); tdVal.textContent = val;
+          tr.appendChild(tdName); tr.appendChild(tdTag); tr.appendChild(tdVal);
+          tbody.appendChild(tr);
+        });
+        summary.hidden = false;
+
+        /* FIX message */
+        var rawMsg = buildFixMsg(form);
+        rawMessages[form.id] = rawMsg;
+        var fixSection = document.getElementById(fixMsgId);
+        document.getElementById(fixMsgId + '-body').textContent = rawMsg.replace(/\x01/g, '|\n');
+        fixSection.hidden = false;
+
+        summary.scrollIntoView({ behavior: 'smooth' });
+      });
+
+      form.addEventListener('reset', function () {
+        document.getElementById(summaryId).hidden = true;
+        document.getElementById(fixMsgId).hidden = true;
+        rawMessages[form.id] = '';
+        form.querySelectorAll('input, select, textarea').forEach(function (ctrl) {
+          ctrl.removeAttribute('aria-invalid');
+          var errEl = document.getElementById('s'+idx+'-'+ctrl.id+'-error');
+          if (errEl) errEl.textContent = '';
+        });
+      });
+    });
+
+    /* Copy buttons */
+    container.querySelectorAll('.copy-fix-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var formId = 'atdl-form-' + btn.dataset.target.replace('fix-message-', '');
+        var text = (rawMessages[formId] || '').replace(/\x01/g, '|');
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = 'Copied!';
+          setTimeout(function () { btn.textContent = 'Copy to Clipboard'; }, 2000);
+        }).catch(function () {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.cssText = 'position:fixed;opacity:0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          btn.textContent = 'Copied!';
+          setTimeout(function () { btn.textContent = 'Copy to Clipboard'; }, 2000);
+        });
+      });
+    });
+
+    /* Import FIX buttons */
+    container.querySelectorAll('.import-fix-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var formId = btn.dataset.form;
+        var importId = btn.dataset.import;
+        var input = document.getElementById(importId + '-input');
+        var alertsDiv = document.getElementById(importId + '-alerts');
+        alertsDiv.innerHTML = '';
+
+        var text = input.value.trim();
+        if (!text) {
+          alertsDiv.innerHTML = '<div class="alert alert-error">Please enter a FIX message to import.</div>';
+          return;
+        }
+
+        var form = document.getElementById(formId);
+        var fields = parseFixMessage(text);
+        if (fields.length === 0) {
+          alertsDiv.innerHTML = '<div class="alert alert-error">No valid tag=value pairs found in the input.</div>';
+          return;
+        }
+
+        var result = importFixToForm(form, fields);
+
+        var html = '';
+        if (result.matched.length > 0) {
+          html += '<div class="alert alert-success">Populated ' + result.matched.length + ' field(s) successfully.</div>';
+        }
+        if (result.unmatched.length > 0) {
+          html += '<div class="alert alert-warning">Unrecognized or invalid entries (' + result.unmatched.length + '):<ul>';
+          result.unmatched.forEach(function (f) {
+            var detail = f.reason ? ' — ' + esc(f.reason) : '';
+            html += '<li>Tag ' + esc(f.tag) + ' = ' + esc(f.value) + detail + '</li>';
+          });
+          html += '</ul></div>';
+        }
+        alertsDiv.innerHTML = html;
+      });
+    });
+  }
+
+})();
+</script>
+</body>
+</html>
