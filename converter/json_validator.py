@@ -20,7 +20,8 @@ JSON-15  "NAME" values must be unique within the strategy.
 JSON-16  "FIXTAGNUMBER" values must be unique within the strategy.
 JSON-17  "DESCRIPTION", if present, must be a string.
 JSON-18  "SUPPORTED_VALUES", if present, must be a JSON array.
-JSON-19  Each item in "SUPPORTED_VALUES" must be a non-empty string.
+JSON-19  Each item in "SUPPORTED_VALUES" must be a JSON object with a
+         non-empty string "VALUE" key and an optional string "DESCRIPTION" key.
 JSON-20  "NAME" must be a valid FIXATDL identifier: a letter followed by
          letters, digits, or underscores (pattern [A-Za-z][A-Za-z0-9_]*).
 JSON-21  "FIXTAGNUMBER" in the standard FIX range (1–4999) produces a
@@ -371,31 +372,54 @@ def validate_data(data: Any) -> list[ValidationIssue]:
                 ))
             else:
                 seen_sv: set[str] = set()
+                # Extract wire-values for downstream checks (JSON-22..24)
+                wire_values: list[str] = []
                 for sv_idx, sv_item in enumerate(sv):
                     sv_path = f"{param_path}.SUPPORTED_VALUES[{sv_idx}]"
-                    if not isinstance(sv_item, str):
+                    if not isinstance(sv_item, dict):
                         issues.append(_err(
                             "JSON-19",
-                            f"Each SUPPORTED_VALUES item must be a string; "
+                            f"Each SUPPORTED_VALUES item must be a JSON object "
+                            f"with VALUE and DESCRIPTION keys; "
                             f"got {type(sv_item).__name__}",
                             sv_path,
                         ))
-                    elif not sv_item:
+                        continue
+                    if "VALUE" not in sv_item:
                         issues.append(_err(
                             "JSON-19",
-                            "Each SUPPORTED_VALUES item must be a non-empty string",
+                            "Each SUPPORTED_VALUES item must have a 'VALUE' key",
+                            sv_path,
+                        ))
+                        continue
+                    val = sv_item["VALUE"]
+                    if not isinstance(val, str) or not val:
+                        issues.append(_err(
+                            "JSON-19",
+                            f"'VALUE' must be a non-empty string; got {val!r}",
                             sv_path,
                         ))
                     else:
+                        wire_values.append(val)
                         # JSON-22 — uniqueness within parameter --------------
-                        if sv_item in seen_sv:
+                        if val in seen_sv:
                             issues.append(_err(
                                 "JSON-22",
-                                f"Duplicate SUPPORTED_VALUES entry {sv_item!r}",
+                                f"Duplicate SUPPORTED_VALUES entry {val!r}",
                                 sv_path,
                             ))
                         else:
-                            seen_sv.add(sv_item)
+                            seen_sv.add(val)
+                    # Validate DESCRIPTION if present
+                    if "DESCRIPTION" in sv_item:
+                        desc = sv_item["DESCRIPTION"]
+                        if not isinstance(desc, str):
+                            issues.append(_err(
+                                "JSON-19",
+                                f"'DESCRIPTION' in SUPPORTED_VALUES item must "
+                                f"be a string; got {type(desc).__name__}",
+                                sv_path,
+                            ))
 
                 # JSON-23 — Boolean_t must have 0 or 2 SUPPORTED_VALUES ------
                 param_type = param_body.get("TYPE")
@@ -413,13 +437,13 @@ def validate_data(data: Any) -> list[ValidationIssue]:
                 if isinstance(param_type, str) and param_type in (
                     "Char_t", "MultipleCharValue_t"
                 ):
-                    for sv_idx, sv_item in enumerate(sv):
-                        if isinstance(sv_item, str) and sv_item and len(sv_item) != 1:
+                    for sv_idx, wire_val in enumerate(wire_values):
+                        if len(wire_val) != 1:
                             issues.append(_err(
                                 "JSON-24",
                                 f"Each SUPPORTED_VALUES entry for '{param_type}' "
-                                f"must be a single character; got {sv_item!r} "
-                                f"(length {len(sv_item)})",
+                                f"must be a single character; got {wire_val!r} "
+                                f"(length {len(wire_val)})",
                                 f"{param_path}.SUPPORTED_VALUES[{sv_idx}]",
                             ))
 

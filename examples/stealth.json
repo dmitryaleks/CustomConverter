@@ -58,7 +58,11 @@
           "DESCRIPTION": "Market sentiment bias used to skew intraday participation-rate curve",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 6007,
-          "SUPPORTED_VALUES": ["Bullish", "Bearish", "Neutral"],
+          "SUPPORTED_VALUES": [
+            {"VALUE": "Bullish", "DESCRIPTION": "Bullish sentiment bias"},
+            {"VALUE": "Bearish", "DESCRIPTION": "Bearish sentiment bias"},
+            {"VALUE": "Neutral", "DESCRIPTION": "No sentiment bias"}
+          ],
           "DEFAULT_VALUE": "Neutral"
         }
       },
@@ -68,7 +72,12 @@
           "DESCRIPTION": "Preferred liquidity pool selection strategy across lit and dark venues",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 6008,
-          "SUPPORTED_VALUES": ["DarkOnly", "LitOnly", "Mixed", "SmartRoute"],
+          "SUPPORTED_VALUES": [
+            {"VALUE": "DarkOnly", "DESCRIPTION": "Dark pools only"},
+            {"VALUE": "LitOnly", "DESCRIPTION": "Lit venues only"},
+            {"VALUE": "Mixed", "DESCRIPTION": "Both dark and lit venues"},
+            {"VALUE": "SmartRoute", "DESCRIPTION": "Smart order routing across all venues"}
+          ],
           "DEFAULT_VALUE": "SmartRoute"
         }
       },
@@ -87,7 +96,12 @@
           "DESCRIPTION": "Action taken when the execution window closes or the order is fully filled",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 6010,
-          "SUPPORTED_VALUES": ["ReportOnly", "CancelRemainder", "MarketOnClose", "Rollover"],
+          "SUPPORTED_VALUES": [
+            {"VALUE": "ReportOnly", "DESCRIPTION": "Report status only"},
+            {"VALUE": "CancelRemainder", "DESCRIPTION": "Cancel remaining quantity"},
+            {"VALUE": "MarketOnClose", "DESCRIPTION": "Execute remainder at market close"},
+            {"VALUE": "Rollover", "DESCRIPTION": "Roll over to next session"}
+          ],
           "DEFAULT_VALUE": "CancelRemainder"
         }
       }

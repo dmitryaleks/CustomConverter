@@ -27,7 +27,10 @@ _VALID_JSON = """\
           "DESCRIPTION": "A string parameter",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 5001,
-          "SUPPORTED_VALUES": ["A", "B"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "A", "DESCRIPTION": ""},
+            {"VALUE": "B", "DESCRIPTION": ""}
+          ]
         }
       }
     ]

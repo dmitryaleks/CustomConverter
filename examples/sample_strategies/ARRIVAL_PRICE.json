@@ -15,7 +15,12 @@
           "DESCRIPTION": "Controls the speed/risk trade-off when tracking arrival price",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 5002,
-          "SUPPORTED_VALUES": ["Low", "Medium", "High", "VeryHigh"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "Low", "DESCRIPTION": "Low urgency"},
+            {"VALUE": "Medium", "DESCRIPTION": "Medium urgency"},
+            {"VALUE": "High", "DESCRIPTION": "High urgency"},
+            {"VALUE": "VeryHigh", "DESCRIPTION": "Very high urgency"}
+          ]
         }
       },
       {
@@ -32,7 +37,10 @@
           "DESCRIPTION": "Allow momentum-based opportunistic fills beyond the arrival price",
           "TYPE": "Boolean_t",
           "FIXTAGNUMBER": 5004,
-          "SUPPORTED_VALUES": ["Y", "N"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "Y", "DESCRIPTION": "Allow momentum fills"},
+            {"VALUE": "N", "DESCRIPTION": "Disallow momentum fills"}
+          ]
         }
       },
       {

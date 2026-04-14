@@ -32,15 +32,13 @@ def _make_root(strategies: list[dict]) -> etree._Element:
     """
     root = etree.Element(f"{{{CORE_NS}}}Strategies", nsmap=_NSMAP)
     root.set("strategyIdentifierTag", "847")
+    _DESC_TAG = f"{{{CORE_NS}}}Description"
     for s in strategies:
         strat = etree.SubElement(root, _STRATEGY_TAG)
         strat.set("name", s.get("name", "TestAlgo"))
         strat.set("providerID", s.get("providerID", "TestProvider"))
         strat.set("version", s.get("version", "1"))
         for p in s.get("params", []):
-            # Prepend comment for description (mirrors builder.py behaviour)
-            if p.get("description"):
-                strat.append(etree.Comment(f" {p['name']}: {p['description']} "))
             elem = etree.SubElement(strat, _PARAM_TAG)
             elem.set("name", p["name"])
             elem.set(f"{{{XSI_NS}}}type", p.get("xsi_type", "core:String_t"))
@@ -49,6 +47,10 @@ def _make_root(strategies: list[dict]) -> etree._Element:
                 elem.set("constValue", p["constValue"])
             if "use" in p:
                 elem.set("use", p["use"])
+            # Add Description as child element (mirrors builder.py behaviour)
+            if p.get("description"):
+                desc_elem = etree.SubElement(elem, _DESC_TAG)
+                desc_elem.text = p["description"]
             for ev in p.get("enum_values", []):
                 ep = etree.SubElement(elem, _ENUM_PAIR_TAG)
                 ep.set("enumID", ev)

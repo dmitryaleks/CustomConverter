@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from converter.parser import AlgoDef, ParameterDef, parse_json
+from converter.parser import AlgoDef, EnumValue, ParameterDef, parse_json
 
 
 # ---------------------------------------------------------------------------
@@ -28,7 +28,11 @@ MINIMAL_JSON = {
                     "DESCRIPTION": "My first parameter",
                     "TYPE": "String_t",
                     "FIXTAGNUMBER": 5001,
-                    "SUPPORTED_VALUES": ["A", "B", "C"],
+                    "SUPPORTED_VALUES": [
+                        {"VALUE": "A", "DESCRIPTION": "Option A"},
+                        {"VALUE": "B", "DESCRIPTION": "Option B"},
+                        {"VALUE": "C", "DESCRIPTION": "Option C"},
+                    ],
                 }
             }
         ]
@@ -79,7 +83,11 @@ class TestParseJsonHappyPath:
     def test_supported_values(self, tmp_path):
         path = _write_json(MINIMAL_JSON, tmp_path)
         algo = parse_json(path)
-        assert algo.parameters[0].supported_values == ["A", "B", "C"]
+        sv = algo.parameters[0].supported_values
+        assert len(sv) == 3
+        assert sv[0] == EnumValue("A", "Option A")
+        assert sv[1] == EnumValue("B", "Option B")
+        assert sv[2] == EnumValue("C", "Option C")
 
     def test_empty_supported_values(self, tmp_path):
         path = _write_json(NO_ENUM_JSON, tmp_path)

@@ -70,10 +70,10 @@
           "TYPE": "String_t",
           "FIXTAGNUMBER": 7007,
           "SUPPORTED_VALUES": [
-            "LitOnly",
-            "DarkOnly",
-            "SmartRoute",
-            "PrimaryOnly"
+            {"VALUE": "LitOnly", "DESCRIPTION": ""},
+            {"VALUE": "DarkOnly", "DESCRIPTION": ""},
+            {"VALUE": "SmartRoute", "DESCRIPTION": ""},
+            {"VALUE": "PrimaryOnly", "DESCRIPTION": ""}
           ],
           "DEFAULT_VALUE": "SmartRoute"
         }
@@ -94,9 +94,9 @@
           "TYPE": "String_t",
           "FIXTAGNUMBER": 7009,
           "SUPPORTED_VALUES": [
-            "CancelRemainder",
-            "MarketOnClose",
-            "Rollover"
+            {"VALUE": "CancelRemainder", "DESCRIPTION": ""},
+            {"VALUE": "MarketOnClose", "DESCRIPTION": ""},
+            {"VALUE": "Rollover", "DESCRIPTION": ""}
           ],
           "DEFAULT_VALUE": "CancelRemainder"
         }

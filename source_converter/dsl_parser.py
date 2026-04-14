@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 from lxml import etree
 
-from converter.parser import AlgoDef, ParameterDef
+from converter.parser import AlgoDef, EnumValue, ParameterDef
 from source_converter.transformers import pad_time, normalize_boolean, strip_percent
 
 if TYPE_CHECKING:
@@ -267,12 +267,12 @@ def _parse_dsl_impl(
 
         # Supported values (enum list)
         sv_container = _child_by_local(param_elem, fm.sv_container)
-        supported_values: list[str] = []
+        supported_values: list[EnumValue] = []
         if sv_container is not None:
             for item in _children_by_local(sv_container, fm.sv_item):
                 text = (item.text or "").strip()
                 if text:
-                    supported_values.append(text)
+                    supported_values.append(EnumValue(value=text))
 
         # Collect any DSL attributes not covered by field_map
         coverage_dropped_set.update(set(param_elem.attrib.keys()) - mapped_attrs)

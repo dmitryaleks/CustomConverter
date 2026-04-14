@@ -14,7 +14,10 @@ looks like::
               "TYPE": "UTCTimeOnly_t",
               "FIXTAGNUMBER": 7001,
               "DEFAULT_VALUE": "09:30:00",      // optional
-              "SUPPORTED_VALUES": ["A", "B"]    // optional
+              "SUPPORTED_VALUES": [             // optional
+                {"VALUE": "A", "DESCRIPTION": ""},
+                {"VALUE": "B", "DESCRIPTION": ""}
+              ]
             }
           }
         ]
@@ -50,7 +53,10 @@ def algo_to_dict(algo: AlgoDef) -> dict:
             "FIXTAGNUMBER": p.fix_tag,
         }
         if p.supported_values:
-            body["SUPPORTED_VALUES"] = list(p.supported_values)
+            body["SUPPORTED_VALUES"] = [
+                {"VALUE": ev.value, "DESCRIPTION": ev.description}
+                for ev in p.supported_values
+            ]
         if p.default_value is not None:
             body["DEFAULT_VALUE"] = p.default_value
         if p.min_value is not None:

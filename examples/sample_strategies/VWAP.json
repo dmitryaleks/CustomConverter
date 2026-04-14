@@ -42,7 +42,11 @@
           "DESCRIPTION": "Which venues to include in execution",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 5005,
-          "SUPPORTED_VALUES": ["DarkOnly", "LitOnly", "Mixed"],
+          "SUPPORTED_VALUES": [
+            {"VALUE": "DarkOnly", "DESCRIPTION": "Dark pools only"},
+            {"VALUE": "LitOnly", "DESCRIPTION": "Lit venues only"},
+            {"VALUE": "Mixed", "DESCRIPTION": "Both dark and lit venues"}
+          ],
           "DEFAULT_VALUE": "Mixed"
         }
       }

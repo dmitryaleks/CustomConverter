@@ -8,12 +8,19 @@ from pathlib import Path
 
 
 @dataclass
+class EnumValue:
+    """A single enumerated value with optional description."""
+    value: str
+    description: str = ""
+
+
+@dataclass
 class ParameterDef:
     name: str
     description: str
     type: str                    # FIX type string, e.g. "String_t"
     fix_tag: int
-    supported_values: list[str] = field(default_factory=list)
+    supported_values: list[EnumValue] = field(default_factory=list)
     default_value: str | None = None
     min_value: str | None = None
     max_value: str | None = None
@@ -39,7 +46,10 @@ def parse_json(path: str | Path) -> AlgoDef:
                   "DESCRIPTION": "...",
                   "TYPE": "String_t",
                   "FIXTAGNUMBER": 5001,
-                  "SUPPORTED_VALUES": ["A", "B"],
+                  "SUPPORTED_VALUES": [
+                    {"VALUE": "A", "DESCRIPTION": "Option A"},
+                    {"VALUE": "B", "DESCRIPTION": "Option B"}
+                  ],
                   "DEFAULT_VALUE": "A"
                 }
               }
@@ -88,13 +98,24 @@ def parse_json(path: str | Path) -> AlgoDef:
                     f"Parameter entry {idx} is missing required field '{required}'"
                 )
 
+        raw_sv = param_body.get("SUPPORTED_VALUES") or []
+        enum_values: list[EnumValue] = []
+        for sv_item in raw_sv:
+            if isinstance(sv_item, dict):
+                enum_values.append(EnumValue(
+                    value=sv_item.get("VALUE", ""),
+                    description=sv_item.get("DESCRIPTION", ""),
+                ))
+            else:
+                enum_values.append(EnumValue(value=str(sv_item)))
+
         parameters.append(
             ParameterDef(
                 name=param_body["NAME"],
                 description=param_body.get("DESCRIPTION", ""),
                 type=param_body["TYPE"],
                 fix_tag=int(param_body["FIXTAGNUMBER"]),
-                supported_values=list(param_body.get("SUPPORTED_VALUES") or []),
+                supported_values=enum_values,
                 default_value=param_body.get("DEFAULT_VALUE") or None,
                 min_value=param_body.get("MIN_VALUE") or None,
                 max_value=param_body.get("MAX_VALUE") or None,

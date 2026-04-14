@@ -116,7 +116,11 @@ The JSON file must have exactly one top-level key — the algorithm name. Its va
           "DESCRIPTION": "My first parameter",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 5001,
-          "SUPPORTED_VALUES": ["A", "B", "C"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "A", "DESCRIPTION": "Option A"},
+            {"VALUE": "B", "DESCRIPTION": "Option B"},
+            {"VALUE": "C", "DESCRIPTION": "Option C"}
+          ]
         }
       },
       {
@@ -152,8 +156,8 @@ The JSON file must have exactly one top-level key — the algorithm name. Its va
 | `NAME` | Yes | `Parameter@name` | Parameter name |
 | `TYPE` | Yes | `Parameter@xsi:type` | FIX type, e.g. `String_t`, `Int_t`, `Qty_t` |
 | `FIXTAGNUMBER` | Yes | `Parameter@fixTag` | Positive integer |
-| `DESCRIPTION` | No | XML comment before `<Parameter>` | Not a standard ATDL attribute |
-| `SUPPORTED_VALUES` | No | `<EnumPair>` children | List of strings |
+| `DESCRIPTION` | No | `<Description>` child of `<Parameter>` | Standard ATDL element |
+| `SUPPORTED_VALUES` | No | `<EnumPair>` children | Array of objects with `VALUE` and `DESCRIPTION` keys |
 | `DEFAULT_VALUE` | No | `lay:Control@initValue` | Initial value for the control |
 | `MIN_VALUE` | No | `Parameter@minValue` | Minimum value (numeric types only) |
 | `MAX_VALUE` | No | `Parameter@maxValue` | Maximum value (numeric types only) |
@@ -270,7 +274,7 @@ In the generated FIXATDL XML:
 The `--html` flag produces a **self-contained, offline-capable HTML page** with no external dependencies. Each strategy is rendered as an interactive form:
 
 - Parameter types are automatically mapped to appropriate HTML controls (see table below).
-- Descriptions from the JSON `DESCRIPTION` field appear as hint text below each control.
+- Descriptions from the `<Description>` child element of each `<Parameter>` appear as hint text below each control.
 - Required fields (parameters with `use="required"`) are highlighted with an orange left border.
 - Clicking **Validate & Preview Values** validates all required fields and renders a wire-value summary table.
 - Clicking **Reset** clears the form and hides the summary.
@@ -310,17 +314,25 @@ The generated XML follows the FIXATDL 1.1 structure. For `examples/sample.json`:
             xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
   <Strategy name="MyAlgo" uiRep="MyAlgo" wireValue="MyAlgo"
             fixMsgType="D" providerID="CustomProvider" version="1">
-    <!-- myParam1: My first parameter -->
     <Parameter name="myParam1" xsi:type="core:String_t" fixTag="5001" mutableOnCxlRpl="true">
-      <EnumPair enumID="A" wireValue="A"/>
-      <EnumPair enumID="B" wireValue="B"/>
-      <EnumPair enumID="C" wireValue="C"/>
+      <Description>My first parameter</Description>
+      <EnumPair enumID="A" wireValue="A">
+        <Description>Option A</Description>
+      </EnumPair>
+      <EnumPair enumID="B" wireValue="B">
+        <Description>Option B</Description>
+      </EnumPair>
+      <EnumPair enumID="C" wireValue="C">
+        <Description>Option C</Description>
+      </EnumPair>
     </Parameter>
-    <!-- myParam2: An integer param with no enum values -->
-    <Parameter name="myParam2" xsi:type="core:Int_t" fixTag="5002" mutableOnCxlRpl="true"/>
-    <!-- RiskAversion: Trade-off between impact and timing risk -->
+    <Parameter name="myParam2" xsi:type="core:Int_t" fixTag="5002" mutableOnCxlRpl="true">
+      <Description>An integer param with no enum values</Description>
+    </Parameter>
     <Parameter name="RiskAversion" xsi:type="core:Float_t" fixTag="5003"
-               mutableOnCxlRpl="true" minValue="0" maxValue="1"/>
+               mutableOnCxlRpl="true" minValue="0" maxValue="1">
+      <Description>Trade-off between impact and timing risk</Description>
+    </Parameter>
     <lay:StrategyLayout>
       <lay:StrategyPanel>
         <lay:Control ID="RiskAversion" xsi:type="lay:SingleSpinner_t"
@@ -337,8 +349,9 @@ The generated XML follows the FIXATDL 1.1 structure. For `examples/sample.json`:
 - `Strategy@uiRep` and `@wireValue` are both set to the algo name.
 - `Strategy@fixMsgType` is always `"D"` (NewOrderSingle).
 - `Parameter@mutableOnCxlRpl` is always `"true"`.
-- `SUPPORTED_VALUES` items whose first character is not a letter are prefixed with `V_` to satisfy the `EnumPair@enumID` pattern constraint (`[A-Za-z][A-Za-z0-9_]{0,255}`).
-- `DESCRIPTION` is written as a preceding XML comment, not as an XML attribute (not part of the ATDL schema).
+- `SUPPORTED_VALUES` items whose `VALUE` starts with a non-letter are prefixed with `e_` to satisfy the `EnumPair@enumID` pattern constraint (`[A-Za-z][A-Za-z0-9_]{0,255}`).
+- `DESCRIPTION` on a parameter is written as a `<Description>` child element of `<Parameter>` (standard ATDL element).
+- `DESCRIPTION` on each `SUPPORTED_VALUES` entry is written as a `<Description>` child element of the corresponding `<EnumPair>`.
 - `MIN_VALUE`/`MAX_VALUE` → `Parameter@minValue`/`@maxValue` (numeric types: `Int_t`, `Float_t`, `Qty_t`, `Price_t`, `PriceOffset_t`, `Amt_t`, `Percentage_t`).
 - `INCREMENT` → `lay:Control@increment` on `SingleSpinner_t` controls; also drives the HTML `step` attribute.
 
@@ -440,7 +453,7 @@ fi
 | JSON-16 | Error | `FIXTAGNUMBER` values must be unique within the strategy |
 | JSON-17 | Error | `DESCRIPTION`, if present, must be a string |
 | JSON-18 | Error | `SUPPORTED_VALUES`, if present, must be a JSON array |
-| JSON-19 | Error | Each `SUPPORTED_VALUES` item must be a non-empty string |
+| JSON-19 | Error | Each `SUPPORTED_VALUES` item must be a JSON object with a non-empty string `VALUE` key and an optional string `DESCRIPTION` key |
 | JSON-20 | Error | `NAME` must be a valid FIXATDL identifier: starts with a letter, followed by letters, digits, or underscores |
 | JSON-21 | Warning | `FIXTAGNUMBER` in the standard FIX range (1–4999); custom algo parameters should use values ≥ 5000 |
 | JSON-22 | Error | `SUPPORTED_VALUES` items must be unique within a parameter |
@@ -953,11 +966,11 @@ python validate_json.py examples/adversarial/invalid_types.json --format json
 python -m pytest tests/ -v
 ```
 
-392 tests cover the full pipeline — JSON validation (including min/max/increment rules), conversion, XSD validation, HTML rendering, type mapping, DSL parsing, and batch evaluation.
+395 tests cover the full pipeline — JSON validation (including min/max/increment rules), conversion, XSD validation, HTML rendering, type mapping, DSL parsing, and batch evaluation.
 
 ```
-tests/test_json_validator.py       108 tests — JSON-01..28, file-based, CLI
-tests/test_builder.py               58 tests — XML structure, attributes, EnumPairs, minValue/maxValue, increment
+tests/test_json_validator.py       109 tests — JSON-01..28, file-based, CLI
+tests/test_builder.py               60 tests — XML structure, attributes, EnumPairs, Description elements, minValue/maxValue, increment
 tests/test_type_mapper.py           36 tests — TypeMapper lookup, coverage, config loading
 tests/test_phase3.py                33 tests — SEM-01..16
 tests/test_dsl_parser.py            26 tests — DSL XML parsing, field mapping, min/max/increment

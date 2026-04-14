@@ -108,7 +108,10 @@ class TestParseDslHappyPath:
     def test_supported_values_extracted(self):
         algo = parse_dsl(STEALTH_DSL)
         urgency = next(p for p in algo.parameters if p.name == "Urgency")
-        assert urgency.supported_values == ["Low", "Medium", "High"]
+        from converter.parser import EnumValue
+        assert urgency.supported_values == [
+            EnumValue("Low"), EnumValue("Medium"), EnumValue("High"),
+        ]
 
     def test_description_extracted(self):
         algo = parse_dsl(STEALTH_DSL)

@@ -6,7 +6,7 @@ import pytest
 from lxml import etree
 
 from converter.builder import build_fixatdl, write_fixatdl
-from converter.parser import AlgoDef, ParameterDef
+from converter.parser import AlgoDef, EnumValue, ParameterDef
 from converter.validator import validate
 
 SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "atdl-core-1-1.xsd"
@@ -25,7 +25,9 @@ def _make_valid_algo():
                 description="My first parameter",
                 type="String_t",
                 fix_tag=5001,
-                supported_values=["A", "B", "C"],
+                supported_values=[
+                    EnumValue("A"), EnumValue("B"), EnumValue("C"),
+                ],
             )
         ],
     )

@@ -122,10 +122,6 @@ def build_fixatdl(
 
 def _add_parameter(parent: etree._Element, param: ParameterDef) -> None:
     """Append a ``<Parameter>`` element (with optional EnumPairs) to *parent*."""
-    # Prepend a comment with the description if one was provided
-    if param.description:
-        parent.append(etree.Comment(f" {param.name}: {param.description} "))
-
     elem = etree.SubElement(parent, _qname("Parameter"))
     elem.set("name", param.name)
     # xsi:type references a concrete type from the core namespace
@@ -139,11 +135,19 @@ def _add_parameter(parent: etree._Element, param: ParameterDef) -> None:
         if param.max_value is not None:
             elem.set("maxValue", param.max_value)
 
-    for wire_value in param.supported_values:
-        enum_id = _sanitize_enum_id(wire_value)
+    # XSD sequence: Description must come before EnumPair children
+    if param.description:
+        desc_elem = etree.SubElement(elem, _qname("Description"))
+        desc_elem.text = param.description
+
+    for ev in param.supported_values:
+        enum_id = _sanitize_enum_id(ev.value)
         enum_pair = etree.SubElement(elem, _qname("EnumPair"))
         enum_pair.set("enumID", enum_id)
-        enum_pair.set("wireValue", wire_value)
+        enum_pair.set("wireValue", ev.value)
+        if ev.description:
+            ep_desc = etree.SubElement(enum_pair, _qname("Description"))
+            ep_desc.text = ev.description
 
 
 def _add_strategy_layout(strategy: etree._Element, params: list[ParameterDef]) -> None:
@@ -160,11 +164,11 @@ def _add_strategy_layout(strategy: etree._Element, params: list[ParameterDef]) -
         ctrl.set("label", param.name)
 
         if ctrl_type == "DropDownList_t":
-            for wire_value in param.supported_values:
-                enum_id = _sanitize_enum_id(wire_value)
+            for ev in param.supported_values:
+                enum_id = _sanitize_enum_id(ev.value)
                 item = etree.SubElement(ctrl, _lqname("ListItem"))
                 item.set("enumID", enum_id)
-                item.set("uiRep", wire_value)
+                item.set("uiRep", ev.value)
 
         if ctrl_type == "SingleSpinner_t" and param.increment is not None:
             ctrl.set("increment", param.increment)

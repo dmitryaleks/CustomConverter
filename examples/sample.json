@@ -7,7 +7,11 @@
           "DESCRIPTION": "My first parameter",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 5001,
-          "SUPPORTED_VALUES": ["A", "B", "C"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "A", "DESCRIPTION": "Option A"},
+            {"VALUE": "B", "DESCRIPTION": "Option B"},
+            {"VALUE": "C", "DESCRIPTION": "Option C"}
+          ]
         }
       },
       {

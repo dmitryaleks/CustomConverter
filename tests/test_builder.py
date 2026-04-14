@@ -13,7 +13,7 @@ from converter.builder import (
     build_fixatdl,
     write_fixatdl,
 )
-from converter.parser import AlgoDef, ParameterDef
+from converter.parser import AlgoDef, EnumValue, ParameterDef
 
 
 # ---------------------------------------------------------------------------
@@ -28,7 +28,11 @@ def _make_algo(params=None):
                 description="My first parameter",
                 type="String_t",
                 fix_tag=5001,
-                supported_values=["A", "B", "C"],
+                supported_values=[
+                    EnumValue("A", "Option A"),
+                    EnumValue("B", "Option B"),
+                    EnumValue("C", "Option C"),
+                ],
             )
         ]
     return AlgoDef(name="MyAlgo", parameters=params)
@@ -173,22 +177,42 @@ class TestBuildFixatdlParameter:
         param = root.find(_qname("Strategy")).find(_qname("Parameter"))
         assert param.findall(_qname("EnumPair")) == []
 
-    def test_description_comment_present(self):
+    def test_description_element_present(self):
         root = build_fixatdl(_make_algo())
-        strat = root.find(_qname("Strategy"))
-        comments = [c for c in strat if isinstance(c, etree._Comment)]
-        assert any("myParam1" in c.text and "My first parameter" in c.text
-                   for c in comments)
+        param = self._get_param(root)
+        desc = param.find(_qname("Description"))
+        assert desc is not None
+        assert desc.text == "My first parameter"
 
-    def test_no_comment_when_no_description(self):
+    def test_no_description_element_when_no_description(self):
         algo = _make_algo(params=[
             ParameterDef(name="p", description="", type="Int_t",
                          fix_tag=1, supported_values=[])
         ])
         root = build_fixatdl(algo)
         strat = root.find(_qname("Strategy"))
-        comments = [c for c in strat if isinstance(c, etree._Comment)]
-        assert comments == []
+        param = strat.find(_qname("Parameter"))
+        assert param.find(_qname("Description")) is None
+
+    def test_enum_pair_description_element(self):
+        algo = _make_algo()
+        root = build_fixatdl(algo)
+        param = self._get_param(root)
+        pairs = param.findall(_qname("EnumPair"))
+        desc = pairs[0].find(_qname("Description"))
+        assert desc is not None
+        assert desc.text == "Option A"
+
+    def test_enum_pair_no_description_when_empty(self):
+        algo = _make_algo(params=[
+            ParameterDef(name="p", description="", type="String_t",
+                         fix_tag=1, supported_values=[EnumValue("X")])
+        ])
+        root = build_fixatdl(algo)
+        strat = root.find(_qname("Strategy"))
+        param = strat.find(_qname("Parameter"))
+        pair = param.find(_qname("EnumPair"))
+        assert pair.find(_qname("Description")) is None
 
     def test_multiple_parameters(self):
         algo = AlgoDef(
@@ -246,12 +270,16 @@ def _lqname(local):
 
 def _make_param(name="p", type_="String_t", tag=5001, sv=None, default=None,
                 min_value=None, max_value=None, increment=None):
+    if sv is not None:
+        enum_vals = [EnumValue(v) if isinstance(v, str) else v for v in sv]
+    else:
+        enum_vals = []
     return ParameterDef(
         name=name,
         description="",
         type=type_,
         fix_tag=tag,
-        supported_values=sv if sv is not None else [],
+        supported_values=enum_vals,
         default_value=default,
         min_value=min_value,
         max_value=max_value,

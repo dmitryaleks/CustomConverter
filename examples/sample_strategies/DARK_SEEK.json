@@ -23,7 +23,11 @@
           "DESCRIPTION": "How aggressively to seek liquidity in dark pools",
           "TYPE": "String_t",
           "FIXTAGNUMBER": 5003,
-          "SUPPORTED_VALUES": ["Passive", "Neutral", "Aggressive"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "Passive", "DESCRIPTION": "Wait for liquidity"},
+            {"VALUE": "Neutral", "DESCRIPTION": "Balanced approach"},
+            {"VALUE": "Aggressive", "DESCRIPTION": "Actively seek liquidity"}
+          ]
         }
       },
       {
@@ -32,7 +36,10 @@
           "DESCRIPTION": "Allow internal crossing of orders",
           "TYPE": "Boolean_t",
           "FIXTAGNUMBER": 5004,
-          "SUPPORTED_VALUES": ["Y", "N"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "Y", "DESCRIPTION": "Allow crossing"},
+            {"VALUE": "N", "DESCRIPTION": "Disallow crossing"}
+          ]
         }
       },
       {

@@ -7,7 +7,11 @@
           "DESCRIPTION": "Order side — Char_t requires single-character values; BUY/SELL/SHORT are multi-char (JSON-24)",
           "TYPE": "Char_t",
           "FIXTAGNUMBER": 5001,
-          "SUPPORTED_VALUES": ["BUY", "SELL", "SHORT"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "BUY", "DESCRIPTION": "Buy side"},
+            {"VALUE": "SELL", "DESCRIPTION": "Sell side"},
+            {"VALUE": "SHORT", "DESCRIPTION": "Short sell"}
+          ]
         }
       },
       {
@@ -16,7 +20,9 @@
           "DESCRIPTION": "Allow odd-lot fills — Boolean_t must have 0 or exactly 2 SUPPORTED_VALUES entries (JSON-23)",
           "TYPE": "Boolean_t",
           "FIXTAGNUMBER": 5002,
-          "SUPPORTED_VALUES": ["Y"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "Y", "DESCRIPTION": "Yes"}
+          ]
         }
       },
       {
@@ -25,7 +31,11 @@
           "DESCRIPTION": "Target venues — duplicate entry (JSON-22) and multi-char values for MultipleCharValue_t (JSON-24)",
           "TYPE": "MultipleCharValue_t",
           "FIXTAGNUMBER": 5003,
-          "SUPPORTED_VALUES": ["DARK", "DARK", "LIT"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "DARK", "DESCRIPTION": "Dark pool"},
+            {"VALUE": "DARK", "DESCRIPTION": "Dark pool duplicate"},
+            {"VALUE": "LIT", "DESCRIPTION": "Lit venue"}
+          ]
         }
       }
     ]

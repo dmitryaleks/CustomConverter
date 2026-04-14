@@ -304,19 +304,17 @@ def _get_enum_pairs(param_elem: etree._Element) -> list[tuple[str, str]]:
     return pairs
 
 
-def _get_description(param_elem: etree._Element) -> str:
-    """Extract description text from the XML comment immediately preceding param_elem.
+_DESC_TAG = f"{{{CORE_NS}}}Description"
 
-    builder.py writes comments in the form ``<!-- name: description -->``.
-    Returns the text after the first colon, stripped of whitespace.
+
+def _get_description(param_elem: etree._Element) -> str:
+    """Extract description text from a ``<Description>`` child element of *param_elem*.
+
+    Returns the text content of the first ``<Description>`` child, or empty string.
     """
-    prev = param_elem.getprevious()
-    if prev is not None and callable(prev.tag):  # comment or PI node
-        text = prev.text or ""
-        colon_idx = text.find(":")
-        if colon_idx != -1:
-            return text[colon_idx + 1:].strip()
-        return text.strip()
+    for child in param_elem:
+        if child.tag == _DESC_TAG:
+            return (child.text or "").strip()
     return ""
 
 

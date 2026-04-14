@@ -31,7 +31,10 @@
           "DESCRIPTION": "Randomise child order sizes around the average slice quantity",
           "TYPE": "Boolean_t",
           "FIXTAGNUMBER": 5004,
-          "SUPPORTED_VALUES": ["Y", "N"]
+          "SUPPORTED_VALUES": [
+            {"VALUE": "Y", "DESCRIPTION": "Enable randomisation"},
+            {"VALUE": "N", "DESCRIPTION": "Disable randomisation"}
+          ]
         }
       },
       {

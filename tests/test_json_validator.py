@@ -27,7 +27,10 @@ def _make_valid_data(
                     "DESCRIPTION": "A parameter",
                     "TYPE": "String_t",
                     "FIXTAGNUMBER": 5001,
-                    "SUPPORTED_VALUES": ["A", "B"],
+                    "SUPPORTED_VALUES": [
+                        {"VALUE": "A", "DESCRIPTION": ""},
+                        {"VALUE": "B", "DESCRIPTION": ""},
+                    ],
                 }
             }
         ]
@@ -358,20 +361,32 @@ class TestSupportedValues:
         })
         assert "JSON-18" in _rule_ids(issues)
 
-    def test_supported_values_empty_item_fails(self):
+    def test_supported_values_item_not_object_fails(self):
         issues = validate_data({
             "MyAlgo": {"PARAMETERS": [
                 {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
-                       "SUPPORTED_VALUES": ["A", ""]}}
+                       "SUPPORTED_VALUES": ["A", "B"]}}
             ]}
         })
         assert "JSON-19" in _rule_ids(issues)
 
-    def test_supported_values_non_string_item_fails(self):
+    def test_supported_values_missing_value_key_fails(self):
         issues = validate_data({
             "MyAlgo": {"PARAMETERS": [
                 {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
-                       "SUPPORTED_VALUES": ["A", 99]}}
+                       "SUPPORTED_VALUES": [{"DESCRIPTION": "no value"}]}}
+            ]}
+        })
+        assert "JSON-19" in _rule_ids(issues)
+
+    def test_supported_values_empty_value_fails(self):
+        issues = validate_data({
+            "MyAlgo": {"PARAMETERS": [
+                {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
+                       "SUPPORTED_VALUES": [
+                           {"VALUE": "A", "DESCRIPTION": ""},
+                           {"VALUE": "", "DESCRIPTION": "empty"}
+                       ]}}
             ]}
         })
         assert "JSON-19" in _rule_ids(issues)
@@ -584,28 +599,39 @@ class TestJSON22:
     def test_duplicate_supported_value_fails(self):
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
-                   "SUPPORTED_VALUES": ["A", "B", "A"]}}
+                   "SUPPORTED_VALUES": [
+                       {"VALUE": "A", "DESCRIPTION": ""},
+                       {"VALUE": "B", "DESCRIPTION": ""},
+                       {"VALUE": "A", "DESCRIPTION": ""},
+                   ]}}
         ]}})
         assert "JSON-22" in _rule_ids(issues)
 
     def test_all_duplicate_supported_values_fail(self):
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
-                   "SUPPORTED_VALUES": ["X", "X"]}}
+                   "SUPPORTED_VALUES": [
+                       {"VALUE": "X", "DESCRIPTION": ""},
+                       {"VALUE": "X", "DESCRIPTION": ""},
+                   ]}}
         ]}})
         assert "JSON-22" in _rule_ids(issues)
 
     def test_unique_supported_values_pass(self):
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
-                   "SUPPORTED_VALUES": ["A", "B", "C"]}}
+                   "SUPPORTED_VALUES": [
+                       {"VALUE": "A", "DESCRIPTION": ""},
+                       {"VALUE": "B", "DESCRIPTION": ""},
+                       {"VALUE": "C", "DESCRIPTION": ""},
+                   ]}}
         ]}})
         assert "JSON-22" not in _rule_ids(issues)
 
     def test_single_supported_value_passes(self):
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
-                   "SUPPORTED_VALUES": ["Only"]}}
+                   "SUPPORTED_VALUES": [{"VALUE": "Only", "DESCRIPTION": ""}]}}
         ]}})
         assert "JSON-22" not in _rule_ids(issues)
 
@@ -622,11 +648,15 @@ class TestJSON23:
         return {"MyAlgo": {"PARAMETERS": [{"P": body}]}}
 
     def test_boolean_one_supported_value_fails(self):
-        issues = validate_data(self._bool_param(["Y"]))
+        issues = validate_data(self._bool_param([{"VALUE": "Y", "DESCRIPTION": ""}]))
         assert "JSON-23" in _rule_ids(issues)
 
     def test_boolean_three_supported_values_fails(self):
-        issues = validate_data(self._bool_param(["Y", "N", "X"]))
+        issues = validate_data(self._bool_param([
+            {"VALUE": "Y", "DESCRIPTION": ""},
+            {"VALUE": "N", "DESCRIPTION": ""},
+            {"VALUE": "X", "DESCRIPTION": ""},
+        ]))
         assert "JSON-23" in _rule_ids(issues)
 
     def test_boolean_zero_supported_values_passes(self):
@@ -634,14 +664,21 @@ class TestJSON23:
         assert "JSON-23" not in _rule_ids(issues)
 
     def test_boolean_two_supported_values_passes(self):
-        issues = validate_data(self._bool_param(["Y", "N"]))
+        issues = validate_data(self._bool_param([
+            {"VALUE": "Y", "DESCRIPTION": ""},
+            {"VALUE": "N", "DESCRIPTION": ""},
+        ]))
         assert "JSON-23" not in _rule_ids(issues)
 
     def test_non_boolean_type_not_constrained(self):
         # String_t with 3 SUPPORTED_VALUES must NOT trigger JSON-23
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
-                   "SUPPORTED_VALUES": ["A", "B", "C"]}}
+                   "SUPPORTED_VALUES": [
+                       {"VALUE": "A", "DESCRIPTION": ""},
+                       {"VALUE": "B", "DESCRIPTION": ""},
+                       {"VALUE": "C", "DESCRIPTION": ""},
+                   ]}}
         ]}})
         assert "JSON-23" not in _rule_ids(issues)
 
@@ -654,21 +691,28 @@ class TestJSON24:
     def test_char_t_multi_char_entry_fails(self):
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "Char_t", "FIXTAGNUMBER": 5001,
-                   "SUPPORTED_VALUES": ["AB"]}}
+                   "SUPPORTED_VALUES": [{"VALUE": "AB", "DESCRIPTION": ""}]}}
         ]}})
         assert "JSON-24" in _rule_ids(issues)
 
     def test_multiple_char_value_t_multi_char_entry_fails(self):
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "MultipleCharValue_t", "FIXTAGNUMBER": 5001,
-                   "SUPPORTED_VALUES": ["ABC", "D"]}}
+                   "SUPPORTED_VALUES": [
+                       {"VALUE": "ABC", "DESCRIPTION": ""},
+                       {"VALUE": "D", "DESCRIPTION": ""},
+                   ]}}
         ]}})
         assert "JSON-24" in _rule_ids(issues)
 
     def test_char_t_single_char_entries_pass(self):
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "Char_t", "FIXTAGNUMBER": 5001,
-                   "SUPPORTED_VALUES": ["A", "B", "C"]}}
+                   "SUPPORTED_VALUES": [
+                       {"VALUE": "A", "DESCRIPTION": ""},
+                       {"VALUE": "B", "DESCRIPTION": ""},
+                       {"VALUE": "C", "DESCRIPTION": ""},
+                   ]}}
         ]}})
         assert "JSON-24" not in _rule_ids(issues)
 
@@ -676,7 +720,7 @@ class TestJSON24:
         # JSON-24 only applies to Char_t / MultipleCharValue_t
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
-                   "SUPPORTED_VALUES": ["LONG_VALUE"]}}
+                   "SUPPORTED_VALUES": [{"VALUE": "LONG_VALUE", "DESCRIPTION": ""}]}}
         ]}})
         assert "JSON-24" not in _rule_ids(issues)
 
@@ -707,7 +751,9 @@ class TestJSON25:
     def test_all_known_fields_no_warning(self):
         issues = validate_data({"MyAlgo": {"PARAMETERS": [
             {"P": {"NAME": "p", "TYPE": "String_t", "FIXTAGNUMBER": 5001,
-                   "DESCRIPTION": "desc", "SUPPORTED_VALUES": ["A"]}}
+                   "DESCRIPTION": "desc", "SUPPORTED_VALUES": [
+                       {"VALUE": "A", "DESCRIPTION": ""}
+                   ]}}
         ]}})
         assert "JSON-25" not in _rule_ids(issues)
 

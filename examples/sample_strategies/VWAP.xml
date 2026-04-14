@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+  <Strategy name="VWAP" uiRep="VWAP" wireValue="VWAP" fixMsgType="D" providerID="CustomProvider" version="1">
+    <Parameter name="StartTime" xsi:type="core:UTCTimeOnly_t" fixTag="5001" mutableOnCxlRpl="true">
+      <Description>Strategy start time (UTC)</Description>
+    </Parameter>
+    <Parameter name="EndTime" xsi:type="core:UTCTimeOnly_t" fixTag="5002" mutableOnCxlRpl="true">
+      <Description>Strategy end time (UTC)</Description>
+    </Parameter>
+    <Parameter name="MaxParticipationRate" xsi:type="core:Percentage_t" fixTag="5003" mutableOnCxlRpl="true">
+      <Description>Maximum participation rate as a percentage of market volume</Description>
+    </Parameter>
+    <Parameter name="DisplayQuantity" xsi:type="core:Qty_t" fixTag="5004" mutableOnCxlRpl="true">
+      <Description>Quantity to display on the order book</Description>
+    </Parameter>
+    <Parameter name="VenueInclusion" xsi:type="core:String_t" fixTag="5005" mutableOnCxlRpl="true">
+      <Description>Which venues to include in execution</Description>
+      <EnumPair enumID="DarkOnly" wireValue="DarkOnly">
+        <Description>Dark pools only</Description>
+      </EnumPair>
+      <EnumPair enumID="LitOnly" wireValue="LitOnly">
+        <Description>Lit venues only</Description>
+      </EnumPair>
+      <EnumPair enumID="Mixed" wireValue="Mixed">
+        <Description>Both dark and lit venues</Description>
+      </EnumPair>
+    </Parameter>
+    <lay:StrategyLayout>
+      <lay:StrategyPanel>
+        <lay:Control ID="StartTime" xsi:type="lay:Clock_t" parameterRef="StartTime" label="StartTime" initValue="09:30:00"/>
+        <lay:Control ID="EndTime" xsi:type="lay:Clock_t" parameterRef="EndTime" label="EndTime" initValue="16:00:00"/>
+        <lay:Control ID="MaxParticipationRate" xsi:type="lay:SingleSpinner_t" parameterRef="MaxParticipationRate" label="MaxParticipationRate" initValue="10"/>
+        <lay:Control ID="DisplayQuantity" xsi:type="lay:SingleSpinner_t" parameterRef="DisplayQuantity" label="DisplayQuantity"/>
+        <lay:Control ID="VenueInclusion" xsi:type="lay:DropDownList_t" parameterRef="VenueInclusion" label="VenueInclusion" initValue="Mixed">
+          <lay:ListItem enumID="DarkOnly" uiRep="DarkOnly"/>
+          <lay:ListItem enumID="LitOnly" uiRep="LitOnly"/>
+          <lay:ListItem enumID="Mixed" uiRep="Mixed"/>
+        </lay:Control>
+      </lay:StrategyPanel>
+    </lay:StrategyLayout>
+  </Strategy>
+</Strategies>
