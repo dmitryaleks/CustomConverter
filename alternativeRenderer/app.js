@@ -154,6 +154,8 @@
     meta.textContent = metaParts.join(" \u2022 ");
     card.appendChild(meta);
 
+    card.appendChild(buildFixInput(strat, idx));
+
     var form = document.createElement("form");
     form.className = "atdl-form";
     form.id = "atdl-form-" + idx;
@@ -195,6 +197,178 @@
     /* Attach state rules after the form is in the DOM. */
     setTimeout(function () { AtdlStateRules.attach(strat, form); }, 0);
     return panel;
+  }
+
+  /* ---------- FIX input: UI + parsing + application ---------- */
+
+  /* Standard header/trailer tags that we ignore when loading a strategy form. */
+  var HEADER_TAGS = { 8:1, 9:1, 35:1, 49:1, 56:1, 34:1, 52:1, 43:1, 50:1, 57:1, 115:1, 116:1, 128:1, 129:1, 142:1, 143:1, 122:1, 212:1, 213:1, 347:1, 369:1, 370:1, 10:1 };
+
+  function buildFixInput(strat, idx) {
+    var details = document.createElement("details");
+    details.className = "fix-input";
+
+    var summary = document.createElement("summary");
+    summary.textContent = "Load from FIX message (optional)";
+    details.appendChild(summary);
+
+    var body = document.createElement("div");
+    body.className = "fix-input-body";
+
+    var hint = document.createElement("div");
+    hint.className = "fix-hint";
+    hint.innerHTML = "Paste a FIX message. Delimiters accepted: SOH (<code>\\x01</code>), <code>|</code>, or newlines.";
+    body.appendChild(hint);
+
+    var ta = document.createElement("textarea");
+    ta.id = "fix-input-ta-" + idx;
+    ta.placeholder = "8=FIX.4.2|9=...|35=D|...";
+    ta.rows = 3;
+    body.appendChild(ta);
+
+    var row = document.createElement("div");
+    row.className = "fix-actions";
+    var loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.className = "primary-btn";
+    loadBtn.textContent = "Load & Render";
+    var clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "ghost-btn";
+    clearBtn.textContent = "Clear";
+    row.appendChild(loadBtn); row.appendChild(clearBtn);
+    body.appendChild(row);
+
+    var warnBox = document.createElement("div");
+    warnBox.className = "fix-warnings";
+    warnBox.setAttribute("aria-live", "polite");
+    body.appendChild(warnBox);
+
+    details.appendChild(body);
+
+    loadBtn.addEventListener("click", function () {
+      warnBox.innerHTML = "";
+      var text = ta.value || "";
+      if (!text.trim()) {
+        appendWarn(warnBox, "err", "Message is empty.");
+        return;
+      }
+      var form = document.getElementById("atdl-form-" + idx);
+      if (!form) return;
+      var result = applyFixMessage(strat, text, form);
+      result.messages.forEach(function (m) {
+        appendWarn(warnBox, m.level, m.text);
+      });
+      if (!result.messages.some(function (m) { return m.level === "err"; })) {
+        appendWarn(warnBox, "ok", "Loaded " + result.loaded + " parameter" + (result.loaded === 1 ? "" : "s") + " from message.");
+      }
+    });
+    clearBtn.addEventListener("click", function () {
+      ta.value = "";
+      warnBox.innerHTML = "";
+    });
+
+    return details;
+  }
+
+  function appendWarn(box, level, text) {
+    var div = document.createElement("div");
+    div.className = "fix-warn" + (level === "err" ? " fix-err" : level === "ok" ? " fix-ok" : "");
+    div.textContent = text;
+    box.appendChild(div);
+  }
+
+  /* Parse a raw FIX message into ordered [{tag, value}] pairs. */
+  function parseFixMessage(text) {
+    var parts = text.split(/[\x01|\r\n]+/);
+    var pairs = [];
+    var errors = [];
+    parts.forEach(function (part) {
+      if (!part) return;
+      var s = part.trim();
+      if (!s) return;
+      var eq = s.indexOf("=");
+      if (eq < 0) {
+        errors.push({ level: "warn", text: 'Malformed field "' + s + '" (no =).' });
+        return;
+      }
+      var tag = s.substring(0, eq).trim();
+      var val = s.substring(eq + 1);
+      if (!/^\d+$/.test(tag)) {
+        errors.push({ level: "warn", text: 'Non-numeric tag "' + tag + '".' });
+        return;
+      }
+      pairs.push({ tag: tag, value: val });
+    });
+    return { pairs: pairs, errors: errors };
+  }
+
+  /* Apply parsed FIX fields to the form for a specific strategy. */
+  function applyFixMessage(strat, text, form) {
+    var parsed = parseFixMessage(text);
+    var messages = parsed.errors.slice();
+    var loaded = 0;
+
+    /* fixTag → {ctrl, param} lookup */
+    var byTag = {};
+    var ctrls = collectControls(strat.panels);
+    ctrls.forEach(function (ctrl) {
+      var param = strat.parameterMap[ctrl.parameterRef];
+      if (param && param.fixTag) byTag[String(param.fixTag)] = { ctrl: ctrl, param: param };
+    });
+
+    var stratIdTag = String(strat.strategyIdentifierTag || "847");
+
+    /* Track duplicates: last wins, but surface a note. */
+    var seen = {};
+
+    parsed.pairs.forEach(function (kv) {
+      if (HEADER_TAGS[kv.tag]) return; /* silently ignore header/trailer */
+
+      if (kv.tag === stratIdTag) {
+        var expected = strat.wireValue || strat.name;
+        if (kv.value !== expected) {
+          messages.push({ level: "warn", text: 'Tag ' + kv.tag + ' ("' + kv.value + '") does not match active strategy ("' + expected + '").' });
+        }
+        return;
+      }
+
+      var entry = byTag[kv.tag];
+      if (!entry) {
+        messages.push({ level: "warn", text: 'Unknown FIX tag ' + kv.tag + ' (value="' + kv.value + '") — no matching parameter.' });
+        return;
+      }
+      if (seen[kv.tag]) {
+        messages.push({ level: "warn", text: 'Tag ' + kv.tag + ' appeared more than once — last value ("' + kv.value + '") used.' });
+      }
+      seen[kv.tag] = true;
+
+      /* Range check for numerics */
+      if (AtdlParser.isNumericType(entry.param.type) && kv.value !== "") {
+        var n = parseFloat(kv.value);
+        if (isNaN(n)) {
+          messages.push({ level: "err", text: 'Tag ' + kv.tag + ' (' + entry.param.name + ') "' + kv.value + '" is not numeric.' });
+          return;
+        }
+        var lo = entry.ctrl.minValue != null ? entry.ctrl.minValue : entry.param.minValue;
+        var hi = entry.ctrl.maxValue != null ? entry.ctrl.maxValue : entry.param.maxValue;
+        if (lo != null && n < parseFloat(lo)) messages.push({ level: "warn", text: 'Tag ' + kv.tag + ' (' + entry.param.name + ') ' + n + ' is below minimum ' + lo + '.' });
+        if (hi != null && n > parseFloat(hi)) messages.push({ level: "warn", text: 'Tag ' + kv.tag + ' (' + entry.param.name + ') ' + n + ' is above maximum ' + hi + '.' });
+      }
+
+      var res = AtdlWidgets.setValue(entry.ctrl, entry.param, kv.value, form);
+      if (res.warnings && res.warnings.length) {
+        res.warnings.forEach(function (w) {
+          messages.push({ level: "warn", text: 'Tag ' + kv.tag + ' (' + entry.param.name + '): ' + w + '.' });
+        });
+      }
+      if (res.ok || res.warnings.length === 0) loaded++;
+    });
+
+    /* Re-run state rules against the new values. */
+    form.dispatchEvent(new Event("input", { bubbles: true }));
+
+    return { loaded: loaded, messages: messages };
   }
 
   /* Render a StrategyPanel — fieldset with optional title and orientation. */

@@ -342,11 +342,98 @@
     return el.value;
   }
 
+  /* Write a wire value from a FIX field into the rendered control.
+     Returns { ok, warnings:[] } where warnings describe values that could
+     not be matched against an enum / list. */
+  function setValue(ctrl, param, wireValue, root) {
+    var name = param ? param.name : ctrl.parameterRef;
+    var warnings = [];
+
+    if (ctrl.type === "Label_t") {
+      return { ok: true, warnings: [] };
+    }
+
+    if (ctrl.type === "CheckBoxList_t") {
+      var box = root.querySelector('[data-role="checkbox-list"][data-name="' + cssEscape(name) + '"]');
+      if (!box) return { ok: false, warnings: ["Control not found"] };
+      var wanted = splitMulti(wireValue);
+      var available = {};
+      box.querySelectorAll('input[type="checkbox"]').forEach(function (c) { available[c.value] = c; });
+      box.querySelectorAll('input[type="checkbox"]').forEach(function (c) { c.checked = false; });
+      wanted.forEach(function (w) {
+        if (available[w]) available[w].checked = true;
+        else warnings.push('Value "' + w + '" not in allowed set');
+      });
+      return { ok: warnings.length === 0, warnings: warnings };
+    }
+
+    if (ctrl.type === "RadioButtonList_t") {
+      var radios = root.querySelectorAll('input[type="radio"][name="' + cssEscape(name) + '"]');
+      var matched = false;
+      radios.forEach(function (r) {
+        r.checked = r.value === wireValue;
+        if (r.checked) matched = true;
+      });
+      if (!matched) warnings.push('Value "' + wireValue + '" not in allowed set');
+      return { ok: matched, warnings: warnings };
+    }
+
+    var el = root.querySelector("#" + cssEscape(ctrl.id));
+    if (!el) return { ok: false, warnings: ["Control not found"] };
+
+    if (el.type === "checkbox") {
+      var tv = el.dataset.trueValue, fv = el.dataset.falseValue;
+      if (wireValue === tv) { el.checked = true; return { ok: true, warnings: [] }; }
+      if (wireValue === fv) { el.checked = false; return { ok: true, warnings: [] }; }
+      el.checked = false;
+      warnings.push('Value "' + wireValue + '" is not "' + tv + '" or "' + fv + '"');
+      return { ok: false, warnings: warnings };
+    }
+
+    if (el.tagName === "SELECT") {
+      if (el.multiple) {
+        var parts = splitMulti(wireValue);
+        var avail = {};
+        for (var i = 0; i < el.options.length; i++) avail[el.options[i].value] = el.options[i];
+        for (var j = 0; j < el.options.length; j++) el.options[j].selected = false;
+        parts.forEach(function (p) {
+          if (avail[p]) avail[p].selected = true;
+          else warnings.push('Value "' + p + '" not in allowed set');
+        });
+        return { ok: warnings.length === 0, warnings: warnings };
+      }
+      for (var k = 0; k < el.options.length; k++) {
+        if (el.options[k].value === wireValue) { el.value = wireValue; return { ok: true, warnings: [] }; }
+      }
+      el.value = "";
+      warnings.push('Value "' + wireValue + '" not in allowed set');
+      return { ok: false, warnings: warnings };
+    }
+
+    if (el.dataset && el.dataset.editableEnum) {
+      var pairs = JSON.parse(el.dataset.enumPairs || "[]");
+      for (var m = 0; m < pairs.length; m++) {
+        if (pairs[m].wireValue === wireValue) { el.value = pairs[m].enumID; return { ok: true, warnings: [] }; }
+      }
+      el.value = wireValue; /* accept free text */
+      return { ok: true, warnings: [] };
+    }
+
+    /* Plain text / number / time input — just assign. */
+    el.value = wireValue;
+    return { ok: true, warnings: [] };
+  }
+
+  function splitMulti(v) {
+    if (v == null) return [];
+    return String(v).split(/\s+/).filter(function (s) { return s.length > 0; });
+  }
+
   /* Minimal CSS.escape polyfill. */
   function cssEscape(s) {
     if (typeof CSS !== "undefined" && CSS.escape) return CSS.escape(s);
     return String(s).replace(/[^a-zA-Z0-9_-]/g, function (c) { return "\\" + c; });
   }
 
-  global.AtdlWidgets = { build: build, readValue: readValue, cssEscape: cssEscape };
+  global.AtdlWidgets = { build: build, readValue: readValue, setValue: setValue, cssEscape: cssEscape };
 })(window);
