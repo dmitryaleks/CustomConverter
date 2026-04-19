@@ -508,12 +508,20 @@
     var messages = parsed.errors.slice();
     var loaded = 0;
 
-    /* fixTag → {ctrl, param} lookup */
+    /* fixTag → {ctrl, param} lookup. Parameters with a constValue but
+       no Control (e.g. routing tags) are registered with ctrl=null so
+       incoming values can still be recognised and checked. */
     var byTag = {};
     var ctrls = collectControls(strat.panels);
     ctrls.forEach(function (ctrl) {
       var param = strat.parameterMap[ctrl.parameterRef];
       if (param && param.fixTag) byTag[String(param.fixTag)] = { ctrl: ctrl, param: param };
+    });
+    strat.parameters.forEach(function (param) {
+      if (!param.fixTag) return;
+      if (byTag[String(param.fixTag)]) return;
+      if (param.constValue == null) return;
+      byTag[String(param.fixTag)] = { ctrl: null, param: param };
     });
 
     var stratIdTag = String(strat.strategyIdentifierTag || "847");
@@ -541,6 +549,16 @@
         messages.push({ level: "warn", text: 'Tag ' + kv.tag + ' appeared more than once — last value ("' + kv.value + '") used.' });
       }
       seen[kv.tag] = true;
+
+      /* Constant parameter with no widget — just compare and move on. */
+      if (!entry.ctrl) {
+        if (entry.param.constValue != null && kv.value !== entry.param.constValue) {
+          messages.push({ level: "warn", text: 'Tag ' + kv.tag + ' (' + entry.param.name + ') "' + kv.value + '" differs from declared constValue "' + entry.param.constValue + '".' });
+        } else {
+          loaded++;
+        }
+        return;
+      }
 
       /* Range check for numerics */
       if (AtdlParser.isNumericType(entry.param.type) && kv.value !== "") {
@@ -665,6 +683,7 @@
     var ok = true;
     var rows = [];
     var fixPairs = [];
+    var emitted = {};
 
     ctrls.forEach(function (ctrl) {
       var param = strat.parameterMap[ctrl.parameterRef];
@@ -696,6 +715,17 @@
       if (param.fixTag && raw != null && raw !== "") {
         fixPairs.push({ tag: param.fixTag, value: raw });
       }
+      emitted[param.name] = true;
+    });
+
+    /* Parameters with a constValue but no Control — e.g. constant service
+       routing tags — must still be emitted on the wire. */
+    strat.parameters.forEach(function (param) {
+      if (emitted[param.name]) return;
+      if (param.constValue == null) return;
+      if (!param.fixTag) return;
+      rows.push({ name: param.name, tag: param.fixTag, value: param.constValue });
+      fixPairs.push({ tag: param.fixTag, value: param.constValue });
     });
 
     if (!ok) {
