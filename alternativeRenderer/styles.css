@@ -340,6 +340,30 @@ input:required, select:required, textarea:required { border-left: 3px solid var(
   max-height: 70vh;
   overflow-y: auto;
 }
+.xml-source-edit {
+  display: block;
+  width: 100%;
+  min-height: 420px;
+  max-height: 70vh;
+  box-sizing: border-box;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  font-family: ui-monospace, "Cascadia Code", "Fira Mono", "Consolas", monospace;
+  font-size: .78rem;
+  line-height: 1.55;
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+.xml-source-edit:focus {
+  outline: none;
+  border-color: var(--accent, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .25);
+}
 .xml-line { display: flex; align-items: flex-start; white-space: pre; }
 .xml-line:hover { background: rgba(255,255,255,.04); }
 .xml-line-warn {

@@ -87,30 +87,38 @@
     clearError();
     var reader = new FileReader();
     reader.onload = function () {
-      var raw = reader.result;
-      /* Wait for the XSD preload to settle so the XSD phase actually
-         runs when schemas are reachable. xsdReady resolves whether the
-         fetch succeeded or failed — xsdModel / xsdLoadError tell us
-         which outcome we got. */
-      xsdReady.then(function () {
-        var validation = AtdlValidator.validate(raw, { xsdModel: xsdModel });
-        validation.xsdLoadError = xsdLoadError;
-        try {
-          var model = validation.wellFormed ? AtdlParser.parse(raw) : { strategyIdentifierTag: "", strategies: [] };
-          renderModel(model, file.name, raw, validation);
-        } catch (err) {
-          /* Still render the source/validation tab even if rendering fails. */
-          renderModel({ strategyIdentifierTag: "", strategies: [] }, file.name, raw, validation);
-          showError("Failed to render strategies: " + err.message);
-        }
-      });
+      runValidationAndRender(reader.result, file.name, false);
     };
     reader.onerror = function () { showError("Could not read file: " + file.name); };
     reader.readAsText(file);
   }
 
+  /* Runs validation + full re-render. Used by both initial file load
+     and the Revalidate button in the Source & Validation tab.
+     stayOnSource=true keeps focus on the Source & Validation tab
+     instead of the first strategy. */
+  function runValidationAndRender(raw, filename, stayOnSource) {
+    clearError();
+    /* Wait for the XSD preload to settle so the XSD phase actually
+       runs when schemas are reachable. xsdReady resolves whether the
+       fetch succeeded or failed — xsdModel / xsdLoadError tell us
+       which outcome we got. */
+    xsdReady.then(function () {
+      var validation = AtdlValidator.validate(raw, { xsdModel: xsdModel });
+      validation.xsdLoadError = xsdLoadError;
+      try {
+        var model = validation.wellFormed ? AtdlParser.parse(raw) : { strategyIdentifierTag: "", strategies: [] };
+        renderModel(model, filename, raw, validation, stayOnSource);
+      } catch (err) {
+        /* Still render the source/validation tab even if rendering fails. */
+        renderModel({ strategyIdentifierTag: "", strategies: [] }, filename, raw, validation, true);
+        showError("Failed to render strategies: " + err.message);
+      }
+    });
+  }
+
   /* ---------- Render model ---------- */
-  function renderModel(model, filename, rawXml, validation) {
+  function renderModel(model, filename, rawXml, validation, stayOnSource) {
     tabsEl.innerHTML = "";
     panelsEl.innerHTML = "";
     summarySection.hidden = true;
@@ -121,11 +129,13 @@
     fileNameEl.textContent = filename + " — strategyIdentifierTag=" + sit;
 
     var anyStrategies = model.strategies && model.strategies.length > 0;
+    var srcIdx = (model.strategies || []).length;
+    var sourceIsActive = stayOnSource || !anyStrategies;
 
     (model.strategies || []).forEach(function (strat, idx) {
       var tab = document.createElement("button");
       tab.type = "button";
-      tab.className = "strategy-tab" + (idx === 0 ? " active" : "");
+      tab.className = "strategy-tab" + (idx === 0 && !sourceIsActive ? " active" : "");
       tab.setAttribute("role", "tab");
       tab.textContent = strat.uiRep || strat.name;
       tab.dataset.idx = idx;
@@ -133,15 +143,14 @@
       tabsEl.appendChild(tab);
 
       var panel = renderStrategy(strat, idx);
-      panel.classList.toggle("active", idx === 0);
+      panel.classList.toggle("active", idx === 0 && !sourceIsActive);
       panelsEl.appendChild(panel);
     });
 
     /* Always append the Source & Validation tab last. */
-    var srcIdx = (model.strategies || []).length;
     var srcTab = document.createElement("button");
     srcTab.type = "button";
-    srcTab.className = "strategy-tab source-tab" + (!anyStrategies ? " active" : "");
+    srcTab.className = "strategy-tab source-tab" + (sourceIsActive ? " active" : "");
     srcTab.setAttribute("role", "tab");
     srcTab.dataset.idx = srcIdx;
     var badgeParts = [];
@@ -152,7 +161,7 @@
     tabsEl.appendChild(srcTab);
 
     var srcPanel = renderSourcePanel(rawXml, validation, filename, srcIdx);
-    srcPanel.classList.toggle("active", !anyStrategies);
+    srcPanel.classList.toggle("active", sourceIsActive);
     panelsEl.appendChild(srcPanel);
 
     if (!anyStrategies && validation.errors.length) {
@@ -305,26 +314,11 @@
       appendIssueGroup(card, "Semantic (phase 3)",           phase3, phase3Warn);
     }
 
-    /* Source actions */
-    var actions = document.createElement("div");
-    actions.className = "source-actions";
-    var copyBtn = document.createElement("button");
-    copyBtn.type = "button"; copyBtn.className = "secondary-btn";
-    copyBtn.textContent = "Copy source";
-    copyBtn.addEventListener("click", function () {
-      if (navigator.clipboard) navigator.clipboard.writeText(rawXml);
-      copyBtn.textContent = "Copied!";
-      setTimeout(function () { copyBtn.textContent = "Copy source"; }, 1800);
-    });
-    var dlBtn = document.createElement("a");
-    dlBtn.className = "ghost-btn";
-    dlBtn.textContent = "Download XML";
-    dlBtn.href = "data:application/xml;charset=utf-8," + encodeURIComponent(rawXml);
-    dlBtn.download = filename || "atdl.xml";
-    dlBtn.style.textDecoration = "none";
-    actions.appendChild(copyBtn);
-    actions.appendChild(dlBtn);
-    card.appendChild(actions);
+    /* Two views on the same text: a read-only highlighted pane and an
+       editable textarea. getCurrentXml() always returns whichever side
+       is authoritative so Copy/Download/Revalidate stay in sync. */
+    var editMode = false;
+    var currentXml = rawXml;
 
     /* Highlighted XML source — mark each line that has an issue. Errors
        win over warnings when both fall on the same line. */
@@ -335,7 +329,86 @@
     var src = document.createElement("div");
     src.className = "xml-source";
     src.innerHTML = AtdlHighlight.renderWithLineNumbers(rawXml, markers);
+
+    var editor = document.createElement("textarea");
+    editor.className = "xml-source-edit";
+    editor.spellcheck = false;
+    editor.value = rawXml;
+    editor.hidden = true;
+
+    function getCurrentXml() { return editMode ? editor.value : currentXml; }
+
+    function refreshDownload() {
+      dlBtn.href = "data:application/xml;charset=utf-8," + encodeURIComponent(getCurrentXml());
+    }
+
+    /* Source actions */
+    var actions = document.createElement("div");
+    actions.className = "source-actions";
+
+    var editBtn = document.createElement("button");
+    editBtn.type = "button"; editBtn.className = "secondary-btn";
+    editBtn.textContent = "Edit XML";
+    editBtn.addEventListener("click", function () {
+      if (!editMode) {
+        editor.value = currentXml;
+        src.hidden = true;
+        editor.hidden = false;
+        editBtn.textContent = "View highlighted";
+        editMode = true;
+        setTimeout(function () { editor.focus(); }, 0);
+      } else {
+        /* If the user edited the XML, the stored issue markers point at
+           lines in the previous text — drop them until Revalidate. */
+        var edited = editor.value !== currentXml;
+        currentXml = editor.value;
+        src.innerHTML = AtdlHighlight.renderWithLineNumbers(currentXml, edited ? {} : markers);
+        editor.hidden = true;
+        src.hidden = false;
+        editBtn.textContent = "Edit XML";
+        editMode = false;
+      }
+      refreshDownload();
+    });
+
+    var revalBtn = document.createElement("button");
+    revalBtn.type = "button"; revalBtn.className = "primary-btn";
+    revalBtn.textContent = "Revalidate";
+    revalBtn.addEventListener("click", function () {
+      var newXml = getCurrentXml();
+      /* Persist the current textarea edits before the panel is
+         replaced by the re-render. */
+      currentXml = newXml;
+      runValidationAndRender(newXml, filename, true);
+    });
+
+    var copyBtn = document.createElement("button");
+    copyBtn.type = "button"; copyBtn.className = "secondary-btn";
+    copyBtn.textContent = "Copy source";
+    copyBtn.addEventListener("click", function () {
+      var text = getCurrentXml();
+      if (navigator.clipboard) navigator.clipboard.writeText(text);
+      copyBtn.textContent = "Copied!";
+      setTimeout(function () { copyBtn.textContent = "Copy source"; }, 1800);
+    });
+
+    var dlBtn = document.createElement("a");
+    dlBtn.className = "ghost-btn";
+    dlBtn.textContent = "Download XML";
+    dlBtn.download = filename || "atdl.xml";
+    dlBtn.style.textDecoration = "none";
+    refreshDownload();
+
+    editor.addEventListener("input", refreshDownload);
+
+    actions.appendChild(editBtn);
+    actions.appendChild(revalBtn);
+    actions.appendChild(copyBtn);
+    actions.appendChild(dlBtn);
+    card.appendChild(actions);
+
     card.appendChild(src);
+    card.appendChild(editor);
 
     panel.appendChild(card);
     return panel;
