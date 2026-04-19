@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+  <Strategy name="TWAP" uiRep="TWAP" wireValue="TWAP" fixMsgType="D" providerID="CustomProvider" version="1">
+    <Parameter name="StartTime" xsi:type="core:UTCTimeOnly_t" fixTag="5001" mutableOnCxlRpl="true">
+      <Description>Strategy start time (UTC)</Description>
+    </Parameter>
+    <Parameter name="EndTime" xsi:type="core:UTCTimeOnly_t" fixTag="5002" mutableOnCxlRpl="true">
+      <Description>Strategy end time (UTC)</Description>
+    </Parameter>
+    <Parameter name="SliceInterval" xsi:type="core:Int_t" fixTag="5003" mutableOnCxlRpl="true">
+      <Description>Time interval between child order slices, in seconds</Description>
+    </Parameter>
+    <Parameter name="RandomiseSliceSize" xsi:type="core:Boolean_t" fixTag="5004" mutableOnCxlRpl="true">
+      <Description>Randomise child order sizes around the average slice quantity</Description>
+      <EnumPair enumID="Y" wireValue="Y">
+        <Description>Enable randomisation</Description>
+      </EnumPair>
+      <EnumPair enumID="N" wireValue="N">
+        <Description>Disable randomisation</Description>
+      </EnumPair>
+    </Parameter>
+    <Parameter name="LimitPrice" xsi:type="core:Price_t" fixTag="5005" mutableOnCxlRpl="true">
+      <Description>Optional price cap on child orders</Description>
+    </Parameter>
+  </Strategy>
+</Strategies>

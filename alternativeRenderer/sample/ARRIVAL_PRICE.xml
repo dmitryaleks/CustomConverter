@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+  <Strategy name="ARRIVAL_PRICE" uiRep="ARRIVAL_PRICE" wireValue="ARRIVAL_PRICE" fixMsgType="D" providerID="CustomProvider" version="1">
+    <Parameter name="ArrivalPxOffset" xsi:type="core:PriceOffset_t" fixTag="5001" mutableOnCxlRpl="true">
+      <Description>Offset from arrival price in basis points (positive = above, negative = below)</Description>
+    </Parameter>
+    <Parameter name="Urgency" xsi:type="core:String_t" fixTag="5002" mutableOnCxlRpl="true">
+      <Description>Controls the speed/risk trade-off when tracking arrival price</Description>
+      <EnumPair enumID="Low" wireValue="Low">
+        <Description>Low urgency</Description>
+      </EnumPair>
+      <EnumPair enumID="Medium" wireValue="Medium">
+        <Description>Medium urgency</Description>
+      </EnumPair>
+      <EnumPair enumID="High" wireValue="High">
+        <Description>High urgency</Description>
+      </EnumPair>
+      <EnumPair enumID="VeryHigh" wireValue="VeryHigh">
+        <Description>Very high urgency</Description>
+      </EnumPair>
+    </Parameter>
+    <Parameter name="MaxDeviation" xsi:type="core:Percentage_t" fixTag="5003" mutableOnCxlRpl="true">
+      <Description>Maximum allowed deviation from arrival price as a percentage</Description>
+    </Parameter>
+    <Parameter name="AllowMomentum" xsi:type="core:Boolean_t" fixTag="5004" mutableOnCxlRpl="true">
+      <Description>Allow momentum-based opportunistic fills beyond the arrival price</Description>
+      <EnumPair enumID="Y" wireValue="Y">
+        <Description>Allow momentum fills</Description>
+      </EnumPair>
+      <EnumPair enumID="N" wireValue="N">
+        <Description>Disallow momentum fills</Description>
+      </EnumPair>
+    </Parameter>
+    <Parameter name="Currency" xsi:type="core:Currency_t" fixTag="5005" mutableOnCxlRpl="true">
+      <Description>Settlement currency for the order</Description>
+    </Parameter>
+  </Strategy>
+</Strategies>

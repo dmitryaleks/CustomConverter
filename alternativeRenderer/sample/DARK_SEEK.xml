@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+  <Strategy name="DARK_SEEK" uiRep="DARK_SEEK" wireValue="DARK_SEEK" fixMsgType="D" providerID="CustomProvider" version="1">
+    <Parameter name="MinFillSize" xsi:type="core:Qty_t" fixTag="5001" mutableOnCxlRpl="true">
+      <Description>Minimum acceptable fill size</Description>
+    </Parameter>
+    <Parameter name="MaxFillSize" xsi:type="core:Qty_t" fixTag="5002" mutableOnCxlRpl="true">
+      <Description>Maximum acceptable fill size</Description>
+    </Parameter>
+    <Parameter name="AggressionLevel" xsi:type="core:String_t" fixTag="5003" mutableOnCxlRpl="true">
+      <Description>How aggressively to seek liquidity in dark pools</Description>
+      <EnumPair enumID="Passive" wireValue="Passive">
+        <Description>Wait for liquidity</Description>
+      </EnumPair>
+      <EnumPair enumID="Neutral" wireValue="Neutral">
+        <Description>Balanced approach</Description>
+      </EnumPair>
+      <EnumPair enumID="Aggressive" wireValue="Aggressive">
+        <Description>Actively seek liquidity</Description>
+      </EnumPair>
+    </Parameter>
+    <Parameter name="AllowCross" xsi:type="core:Boolean_t" fixTag="5004" mutableOnCxlRpl="true">
+      <Description>Allow internal crossing of orders</Description>
+      <EnumPair enumID="Y" wireValue="Y">
+        <Description>Allow crossing</Description>
+      </EnumPair>
+      <EnumPair enumID="N" wireValue="N">
+        <Description>Disallow crossing</Description>
+      </EnumPair>
+    </Parameter>
+    <Parameter name="PriceImprovement" xsi:type="core:Float_t" fixTag="5005" mutableOnCxlRpl="true">
+      <Description>Minimum price improvement required over reference price, in basis points</Description>
+    </Parameter>
+  </Strategy>
+</Strategies>

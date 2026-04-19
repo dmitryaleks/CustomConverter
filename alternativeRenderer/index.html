@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATDL Renderer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>FIXatdl Renderer</h1>
+    <p class="subtitle">Drop a FIXatdl 1.1 XML file to render its strategies as an order entry form.</p>
+  </header>
+
+  <section id="drop-zone" class="drop-zone" tabindex="0" aria-label="Drop ATDL XML file here">
+    <div class="drop-inner">
+      <p class="drop-title">Drop ATDL file here</p>
+      <p class="drop-or">or</p>
+      <label class="file-btn">
+        <input type="file" id="file-input" accept=".xml,application/xml,text/xml" hidden>
+        Browse for XML
+      </label>
+      <p class="drop-hint">Files are processed locally — nothing is uploaded.</p>
+    </div>
+  </section>
+
+  <section id="error-banner" class="error-banner" hidden></section>
+
+  <section id="strategy-shell" class="strategy-shell" hidden>
+    <div class="shell-meta">
+      <span id="file-name" class="file-name"></span>
+      <button id="reset-btn" class="ghost-btn" type="button">Load another file</button>
+    </div>
+    <nav id="strategy-tabs" class="strategy-tabs" role="tablist"></nav>
+    <div id="strategy-panels"></div>
+  </section>
+
+  <section id="summary" class="card" hidden>
+    <h2>Order Parameter Summary</h2>
+    <table>
+      <thead><tr><th>Parameter</th><th>FIX Tag</th><th>Value</th></tr></thead>
+      <tbody id="summary-body"></tbody>
+    </table>
+  </section>
+
+  <section id="fix-message" class="card" hidden>
+    <h2>Raw FIX 4.2 Message</h2>
+    <p class="fix-meta">Fields delimited by <code>|</code> (SOH substitute). Empty optional parameters are omitted.</p>
+    <pre id="fix-message-body" class="fix-pre"></pre>
+    <div class="actions">
+      <button id="fix-copy-btn" class="primary-btn" type="button">Copy to Clipboard</button>
+    </div>
+  </section>
+
+  <script src="atdl-parser.js"></script>
+  <script src="widgets.js"></script>
+  <script src="state-rules.js"></script>
+  <script src="fix-builder.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
