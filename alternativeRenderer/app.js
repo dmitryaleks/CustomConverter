@@ -19,6 +19,18 @@
   var lastRawMsg = "";
   var loadedStrategies = []; /* { strategy, formEl } */
 
+  /* XSD schema model — loaded once in the background. Validation waits on
+     xsdReady so the XSD phase always runs when the schemas are reachable.
+     If the fetch fails (typical from file:// in Chrome), xsdLoadError
+     carries the reason and the phase is skipped with a visible message. */
+  var xsdModel = null;
+  var xsdLoadError = null;
+  var xsdReady = window.AtdlXsdLoader
+    ? window.AtdlXsdLoader.load("schemas/")
+        .then(function (m) { xsdModel = m; })
+        .catch(function (e) { xsdLoadError = e && e.message ? e.message : String(e); })
+    : Promise.resolve();
+
   /* ---------- Drop zone wiring ---------- */
   ["dragenter", "dragover"].forEach(function (ev) {
     dropZone.addEventListener(ev, function (e) {
@@ -76,15 +88,22 @@
     var reader = new FileReader();
     reader.onload = function () {
       var raw = reader.result;
-      var validation = AtdlValidator.validate(raw);
-      try {
-        var model = validation.wellFormed ? AtdlParser.parse(raw) : { strategyIdentifierTag: "", strategies: [] };
-        renderModel(model, file.name, raw, validation);
-      } catch (err) {
-        /* Still render the source/validation tab even if rendering fails. */
-        renderModel({ strategyIdentifierTag: "", strategies: [] }, file.name, raw, validation);
-        showError("Failed to render strategies: " + err.message);
-      }
+      /* Wait for the XSD preload to settle so the XSD phase actually
+         runs when schemas are reachable. xsdReady resolves whether the
+         fetch succeeded or failed — xsdModel / xsdLoadError tell us
+         which outcome we got. */
+      xsdReady.then(function () {
+        var validation = AtdlValidator.validate(raw, { xsdModel: xsdModel });
+        validation.xsdLoadError = xsdLoadError;
+        try {
+          var model = validation.wellFormed ? AtdlParser.parse(raw) : { strategyIdentifierTag: "", strategies: [] };
+          renderModel(model, file.name, raw, validation);
+        } catch (err) {
+          /* Still render the source/validation tab even if rendering fails. */
+          renderModel({ strategyIdentifierTag: "", strategies: [] }, file.name, raw, validation);
+          showError("Failed to render strategies: " + err.message);
+        }
+      });
     };
     reader.onerror = function () { showError("Could not read file: " + file.name); };
     reader.readAsText(file);
@@ -237,10 +256,26 @@
 
     var meta = document.createElement("p");
     meta.className = "meta";
+    var xsdState;
+    if (validation.xsdAvailable) xsdState = "XSD phase \u2713 (6 bundled schemas)";
+    else if (validation.xsdLoadError) xsdState = "XSD phase skipped — " + validation.xsdLoadError + " (serve the folder over http to enable)";
+    else xsdState = "XSD phase: schemas still loading";
     meta.textContent = filename + " — " +
       (validation.wellFormed ? "well-formed XML" : "XML parse error") +
-      " \u2022 FIXatdl 1.1 schemas bundled under /schemas/";
+      " \u2022 " + xsdState;
     card.appendChild(meta);
+
+    /* Partition issues by phase so each group can be shown as its own
+       section — lets the user tell an XSD-schema finding apart from a
+       semantic one at a glance. */
+    var phase0 = [], phase1 = [], phase2 = [], phase3 = [];
+    validation.errors.forEach(function (e) {
+      if (e.phase === 0) phase0.push(e);
+      else if (e.phase === 1) phase1.push(e);
+      else if (e.phase === 2) phase2.push(e);
+      else phase3.push(e);
+    });
+    var phase3Warn = validation.warnings.filter(function (w) { return (w.phase || 3) === 3; });
 
     /* Summary strip */
     var sum = document.createElement("div");
@@ -248,11 +283,13 @@
     sum.appendChild(stat("Strategies", validation.summary.strategies));
     sum.appendChild(stat("Parameters", validation.summary.parameters));
     sum.appendChild(stat("Controls",   validation.summary.controls));
+    sum.appendChild(stat("XSD",        validation.xsdAvailable ? phase0.length : "—",
+                         validation.xsdAvailable ? (phase0.length ? "err" : "ok") : ""));
     sum.appendChild(stat("Errors",     validation.errors.length,   validation.errors.length ? "err" : "ok"));
     sum.appendChild(stat("Warnings",   validation.warnings.length, validation.warnings.length ? "warn" : "ok"));
     card.appendChild(sum);
 
-    /* Issues list */
+    /* Issues grouped by phase. */
     if (validation.errors.length === 0 && validation.warnings.length === 0) {
       var ok = document.createElement("p");
       ok.className = "issue issue-ok";
@@ -262,11 +299,10 @@
       ok.textContent = "\u2713 No schema, reference, or semantic issues detected.";
       card.appendChild(ok);
     } else {
-      var list = document.createElement("ul");
-      list.className = "issue-list";
-      validation.errors.forEach(function (e) { list.appendChild(issueItem(e, "err")); });
-      validation.warnings.forEach(function (w) { list.appendChild(issueItem(w, "warn")); });
-      card.appendChild(list);
+      appendIssueGroup(card, "XSD Schema (phase 0)",         phase0, []);
+      appendIssueGroup(card, "XML shape (phase 1)",          phase1, []);
+      appendIssueGroup(card, "Referential (phase 2)",        phase2, []);
+      appendIssueGroup(card, "Semantic (phase 3)",           phase3, phase3Warn);
     }
 
     /* Source actions */
@@ -303,6 +339,20 @@
 
     panel.appendChild(card);
     return panel;
+  }
+
+  function appendIssueGroup(container, title, errors, warnings) {
+    if (errors.length === 0 && warnings.length === 0) return;
+    var h = document.createElement("h3");
+    h.className = "issue-group-title";
+    h.textContent = title + " — " + errors.length + " error" + (errors.length === 1 ? "" : "s") +
+      (warnings.length ? ", " + warnings.length + " warning" + (warnings.length === 1 ? "" : "s") : "");
+    container.appendChild(h);
+    var list = document.createElement("ul");
+    list.className = "issue-list";
+    errors.forEach(function (e) { list.appendChild(issueItem(e, "err")); });
+    warnings.forEach(function (w) { list.appendChild(issueItem(w, "warn")); });
+    container.appendChild(list);
   }
 
   function stat(label, value, tone) {

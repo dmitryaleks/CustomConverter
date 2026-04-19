@@ -21,7 +21,7 @@
     "MonthYear_t","MultipleCharValue_t","MultipleStringValue_t","NumInGroup_t",
     "Numeric_t","Percentage_t","Price_t","PriceOffset_t","Qty_t","SeqNum_t",
     "String_t","TagNum_t","Tenor_t","UTCDate_t","UTCDateOnly_t","UTCTimeOnly_t",
-    "UTCTimestamp_t","XMLData_t"
+    "UTCTimeStamp_t","XMLData_t"
   ];
 
   /* Allowed Control xsi:type local names (from atdl-layout-1-1.xsd). */
@@ -407,6 +407,7 @@
     var sit = root.getAttribute("strategyIdentifierTag");
     var stratList = childrenNS(root, NS_CORE, "Strategy");
     var seenStrat = {};
+    var seenStratWire = {}; /* wireValue → first strategy name (SEM-21) */
 
     stratList.forEach(function (s) {
       var sname = s.getAttribute("name") || "?";
@@ -416,6 +417,18 @@
         errors.push(makeIssue(3, "SEM-05", "Duplicate Strategy name '" + sname + "'.", s));
       }
       seenStrat[sname] = true;
+
+      /* SEM-21: Strategy wireValue must be unique across all Strategies, otherwise
+         the receiving system cannot tell which strategy the order targets. */
+      var swv = s.getAttribute("wireValue");
+      if (swv) {
+        if (seenStratWire[swv]) {
+          errors.push(makeIssue(3, "SEM-21",
+            "Duplicate Strategy wireValue '" + swv + "' (also used by Strategy '" + seenStratWire[swv] + "').", s));
+        } else {
+          seenStratWire[swv] = sname;
+        }
+      }
 
       var seenParam = {};
       var fixTags = {};
@@ -472,6 +485,15 @@
           }
         }
 
+        /* SEM-23W: minValue/maxValue on a non-numeric parameter has no effect
+           (XSD allows the attributes on Parameter_t but they are only meaningful
+           for numeric subtypes). */
+        if (!NUMERIC_TYPES[bt] && bt && (minV != null || maxV != null)) {
+          warnings.push(makeIssue(3, "SEM-23W",
+            "Strategy '" + sname + "', Parameter '" + name + "': minValue/maxValue declared on non-numeric type '" + bt + "' — value bounds will be ignored.",
+            p));
+        }
+
         /* SEM-10: minLength ≤ maxLength (string types) */
         var minL = p.getAttribute("minLength"), maxL = p.getAttribute("maxLength");
         if (minL != null && maxL != null) {
@@ -482,37 +504,138 @@
         }
       });
 
-      /* Cross-check controls vs. parameter type compatibility (SEM-08-ish) */
-      var paramType = {};
-      childrenNS(s, NS_CORE, "Parameter").forEach(function (p) {
-        paramType[p.getAttribute("name")] = bareType(p.getAttributeNS(NS_XSI, "type"));
+      /* Build per-strategy parameter index (type, min, max) once. */
+      var paramType = {}, paramMin = {}, paramMax = {};
+      var paramElems = childrenNS(s, NS_CORE, "Parameter");
+      paramElems.forEach(function (p) {
+        var nm = p.getAttribute("name");
+        if (!nm) return;
+        paramType[nm] = bareType(p.getAttributeNS(NS_XSI, "type"));
+        var mn = p.getAttribute("minValue"), mx = p.getAttribute("maxValue");
+        if (mn != null && mn !== "") paramMin[nm] = parseFloat(mn);
+        if (mx != null && mx !== "") paramMax[nm] = parseFloat(mx);
       });
+
+      /* SEM-28W: Strategy declares no Parameters — nothing for the user to
+         configure and no fields to send beyond the strategy identifier. */
+      if (paramElems.length === 0) {
+        warnings.push(makeIssue(3, "SEM-28W",
+          "Strategy '" + sname + "' declares no Parameters — the form will be empty.", s));
+      }
+
       var layout = childrenNS(s, NS_LAY, "StrategyLayout")[0];
+      var seenCtrlId = {};      /* SEM-18: Control/@ID uniqueness within strategy */
+      var boundParams = {};     /* SEM-19W: which Parameters are bound by some Control */
       if (layout) {
         descendantsNS(layout, NS_LAY, "Control").forEach(function (c) {
+          var cid = c.getAttribute("ID") || "?";
           var ref = c.getAttribute("parameterRef");
-          if (!ref || !paramType[ref]) return;
           var ctrl = bareType(c.getAttributeNS(NS_XSI, "type"));
+
+          /* SEM-18: duplicate Control ID within a strategy. */
+          if (cid && cid !== "?") {
+            if (seenCtrlId[cid]) {
+              errors.push(makeIssue(3, "SEM-18",
+                "Strategy '" + sname + "': duplicate Control ID '" + cid + "'.", c));
+            }
+            seenCtrlId[cid] = true;
+          }
+
+          /* SEM-20W: input-bearing controls should reference a parameter.
+             Label_t is the only purely decorative control type. */
+          if (!ref && ctrl && ctrl !== "Label_t") {
+            warnings.push(makeIssue(3, "SEM-20W",
+              "Strategy '" + sname + "': Control '" + cid + "' (" + ctrl + ") has no parameterRef — its value will not be sent.", c));
+          }
+          if (ref) boundParams[ref] = true;
+
+          /* SEM-17: ListItem enumIDs within a single Control must be unique
+             (otherwise two drop-down options collapse to one). */
+          if (LIST_CONTROL_TYPES[ctrl]) {
+            var seenLi = {};
+            var listItems = childrenNS(c, NS_LAY, "ListItem");
+            listItems.forEach(function (li) {
+              var eid = li.getAttribute("enumID");
+              if (!eid) return;
+              if (seenLi[eid]) {
+                errors.push(makeIssue(3, "SEM-17",
+                  "Strategy '" + sname + "': Control '" + cid + "' has duplicate ListItem enumID '" + eid + "'.", li));
+              }
+              seenLi[eid] = true;
+            });
+
+            /* SEM-26W: list-style controls with no options render an empty
+               drop-down. (Skip if the bound parameter has EnumPairs — those
+               can populate the list at runtime via the parameter side.) */
+            if (listItems.length === 0) {
+              var paramHasEnums = false;
+              paramElems.forEach(function (pe) {
+                if (pe.getAttribute("name") === ref &&
+                    childrenNS(pe, NS_CORE, "EnumPair").length > 0) {
+                  paramHasEnums = true;
+                }
+              });
+              if (!paramHasEnums) {
+                warnings.push(makeIssue(3, "SEM-26W",
+                  "Strategy '" + sname + "': List-style Control '" + cid + "' (" + ctrl + ") has no ListItems — drop-down will be empty.", c));
+              }
+            }
+          }
+
+          if (!ref || !paramType[ref]) return;
           var pt = paramType[ref];
+
+          /* SEM-08W / SEM-08bW: type compatibility (existing). */
           if ((ctrl === "SingleSpinner_t" || ctrl === "DoubleSpinner_t" || ctrl === "Slider_t") && !NUMERIC_TYPES[pt]) {
             warnings.push(makeIssue(3, "SEM-08W",
-              "Strategy '" + sname + "': Control '" + (c.getAttribute("ID") || "?") + "' (" + ctrl + ") bound to non-numeric parameter '" + ref + "' (" + pt + ").",
+              "Strategy '" + sname + "': Control '" + cid + "' (" + ctrl + ") bound to non-numeric parameter '" + ref + "' (" + pt + ").",
               c));
           }
           if (ctrl === "Clock_t" && ["UTCTimeOnly_t","UTCTimestamp_t","UTCDate_t","LocalMktDate_t","LocalMktTime_t","MonthYear_t"].indexOf(pt) < 0) {
             warnings.push(makeIssue(3, "SEM-08bW",
-              "Strategy '" + sname + "': Control '" + (c.getAttribute("ID") || "?") + "' (Clock_t) bound to non-time parameter '" + ref + "' (" + pt + ").",
+              "Strategy '" + sname + "': Control '" + cid + "' (Clock_t) bound to non-time parameter '" + ref + "' (" + pt + ").",
               c));
+          }
+
+          /* SEM-25W: initValue must fall inside the parameter's [minValue,
+             maxValue] bounds when both are declared and the parameter is
+             numeric. (For list controls, REF-07 already validates the
+             initValue against the ListItem set.) */
+          var iv = c.getAttribute("initValue");
+          if (iv != null && iv !== "" && NUMERIC_TYPES[pt] && !LIST_CONTROL_TYPES[ctrl]) {
+            var ivn = parseFloat(iv);
+            if (!isNaN(ivn)) {
+              if (paramMin[ref] != null && ivn < paramMin[ref]) {
+                warnings.push(makeIssue(3, "SEM-25W",
+                  "Strategy '" + sname + "': Control '" + cid + "' initValue " + iv + " is below parameter '" + ref + "' minValue " + paramMin[ref] + ".", c));
+              }
+              if (paramMax[ref] != null && ivn > paramMax[ref]) {
+                warnings.push(makeIssue(3, "SEM-25W",
+                  "Strategy '" + sname + "': Control '" + cid + "' initValue " + iv + " is above parameter '" + ref + "' maxValue " + paramMax[ref] + ".", c));
+              }
+            }
           }
         });
       }
+
+      /* SEM-19W: Parameters that no Control binds to are unreachable from
+         the UI. Skip parameters marked const="true" — those are sent as
+         constants regardless of UI presence. */
+      paramElems.forEach(function (p) {
+        var nm = p.getAttribute("name");
+        if (!nm || boundParams[nm]) return;
+        if (p.getAttribute("const") === "true") return;
+        warnings.push(makeIssue(3, "SEM-19W",
+          "Strategy '" + sname + "': Parameter '" + nm + "' is not bound to any Control — user cannot set its value.", p));
+      });
     });
 
     return { errors: errors, warnings: warnings };
   }
 
   /* ---------- Top-level entry ---------- */
-  function validate(xmlText) {
+  function validate(xmlText, options) {
+    options = options || {};
     var doc = new DOMParser().parseFromString(xmlText, "application/xml");
     var perr = doc.getElementsByTagName("parsererror")[0];
     if (perr) {
@@ -521,7 +644,8 @@
         wellFormed: false,
         summary: { strategies: 0, parameters: 0, controls: 0 },
         errors: [makeIssue(0, "XML-WF", "XML parse error: " + msg)],
-        warnings: []
+        warnings: [],
+        xsdAvailable: !!options.xsdModel
       };
     }
 
@@ -537,6 +661,13 @@
       if (lay) totalCtrls += descendantsNS(lay, NS_LAY, "Control").length;
     });
 
+    /* Phase 0: XSD-driven structural validation (only if the caller
+       supplied a parsed schema model and AtdlXsdValidator is present). */
+    var p0 = [];
+    if (options.xsdModel && global.AtdlXsdValidator) {
+      p0 = global.AtdlXsdValidator.validate(doc, options.xsdModel);
+    }
+
     var p1 = phase1(doc, xmlText);
     var p2 = (p1.length === 0) ? phase2(doc) : [];
     var p3 = (p1.length === 0) ? phase3(doc) : { errors: [], warnings: [] };
@@ -544,8 +675,9 @@
     return {
       wellFormed: true,
       summary: { strategies: strategies.length, parameters: totalParams, controls: totalCtrls },
-      errors: p1.concat(p2, p3.errors),
-      warnings: p3.warnings
+      errors: p0.concat(p1, p2, p3.errors),
+      warnings: p3.warnings,
+      xsdAvailable: !!options.xsdModel
     };
   }
 

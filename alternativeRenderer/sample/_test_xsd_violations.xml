@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Deliberately broken fixture — each "violation" comment marks which XSD-* rule should fire. -->
+<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core"
+            strategyIdentifierTag="847">
+  <Strategy name="BROKEN" uiRep="Broken" wireValue="BROKEN" fixMsgType="D"
+            providerID="CustomProvider" version="1" bogusAttr="x">
+    <!-- XSD-ATTR: bogusAttr is not declared on Strategy_t -->
+
+    <!-- XSD-ABSTRACT: Parameter_t is abstract, no xsi:type here -->
+    <Parameter name="Abs" fixTag="6001"/>
+
+    <!-- XSD-TYPE: xsi:type points to a non-existent type -->
+    <Parameter name="BadType" xsi:type="core:NoSuchType_t" fixTag="6002"/>
+
+    <!-- XSD-VAL: fixTag should be positiveInteger; "abc" fails -->
+    <Parameter name="BadFixTag" xsi:type="core:Int_t" fixTag="abc"/>
+
+    <!-- XSD-CHILD: <Rubbish> is not declared anywhere -->
+    <Parameter name="WithStray" xsi:type="core:Int_t" fixTag="6003">
+      <Rubbish/>
+    </Parameter>
+
+    <!-- XSD-REQ: EnumPair requires @wireValue -->
+    <Parameter name="MissingAttr" xsi:type="core:String_t" fixTag="6004">
+      <EnumPair enumID="A"/>
+    </Parameter>
+  </Strategy>
+</Strategies>

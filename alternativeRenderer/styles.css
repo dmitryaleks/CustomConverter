@@ -292,6 +292,13 @@ input:required, select:required, textarea:required { border-left: 3px solid var(
 .validation-summary .stat-value.ok { color: #059669; }
 
 .issue-list { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-direction: column; gap: .35rem; }
+.issue-group-title {
+  font-size: .82rem; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .04em;
+  margin: 1rem 0 .4rem; padding-bottom: .25rem;
+  border-bottom: 1px solid var(--border);
+}
+.issue-group-title:first-of-type { margin-top: .25rem; }
 .issue {
   padding: .5rem .7rem;
   border-radius: 4px;
