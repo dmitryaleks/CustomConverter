@@ -75,12 +75,15 @@
     clearError();
     var reader = new FileReader();
     reader.onload = function () {
+      var raw = reader.result;
+      var validation = AtdlValidator.validate(raw);
       try {
-        var model = AtdlParser.parse(reader.result);
-        renderModel(model, file.name);
+        var model = validation.wellFormed ? AtdlParser.parse(raw) : { strategyIdentifierTag: "", strategies: [] };
+        renderModel(model, file.name, raw, validation);
       } catch (err) {
-        showError("Failed to parse " + file.name + ":\n" + err.message);
-        shell.hidden = true;
+        /* Still render the source/validation tab even if rendering fails. */
+        renderModel({ strategyIdentifierTag: "", strategies: [] }, file.name, raw, validation);
+        showError("Failed to render strategies: " + err.message);
       }
     };
     reader.onerror = function () { showError("Could not read file: " + file.name); };
@@ -88,21 +91,19 @@
   }
 
   /* ---------- Render model ---------- */
-  function renderModel(model, filename) {
+  function renderModel(model, filename, rawXml, validation) {
     tabsEl.innerHTML = "";
     panelsEl.innerHTML = "";
     summarySection.hidden = true;
     fixSection.hidden = true;
     loadedStrategies = [];
 
-    fileNameEl.textContent = filename + " — strategyIdentifierTag=" + model.strategyIdentifierTag;
+    var sit = model.strategyIdentifierTag || "(unknown)";
+    fileNameEl.textContent = filename + " — strategyIdentifierTag=" + sit;
 
-    if (!model.strategies.length) {
-      showError("No <Strategy> elements found in document.");
-      return;
-    }
+    var anyStrategies = model.strategies && model.strategies.length > 0;
 
-    model.strategies.forEach(function (strat, idx) {
+    (model.strategies || []).forEach(function (strat, idx) {
       var tab = document.createElement("button");
       tab.type = "button";
       tab.className = "strategy-tab" + (idx === 0 ? " active" : "");
@@ -117,16 +118,38 @@
       panelsEl.appendChild(panel);
     });
 
+    /* Always append the Source & Validation tab last. */
+    var srcIdx = (model.strategies || []).length;
+    var srcTab = document.createElement("button");
+    srcTab.type = "button";
+    srcTab.className = "strategy-tab source-tab" + (!anyStrategies ? " active" : "");
+    srcTab.setAttribute("role", "tab");
+    srcTab.dataset.idx = srcIdx;
+    var badgeParts = [];
+    if (validation.errors.length) { badgeParts.push(validation.errors.length + " err"); srcTab.classList.add("has-errors"); }
+    if (validation.warnings.length) { badgeParts.push(validation.warnings.length + " warn"); if (!validation.errors.length) srcTab.classList.add("has-warnings"); }
+    srcTab.textContent = "Source & Validation" + (badgeParts.length ? " (" + badgeParts.join(", ") + ")" : " \u2713");
+    srcTab.addEventListener("click", function () { activateTab(srcIdx); });
+    tabsEl.appendChild(srcTab);
+
+    var srcPanel = renderSourcePanel(rawXml, validation, filename, srcIdx);
+    srcPanel.classList.toggle("active", !anyStrategies);
+    panelsEl.appendChild(srcPanel);
+
+    if (!anyStrategies && validation.errors.length) {
+      showError("Document has " + validation.errors.length + " validation error(s). See the Source & Validation tab.");
+    }
+
     shell.hidden = false;
     dropZone.hidden = true;
   }
 
   function activateTab(idx) {
-    tabsEl.querySelectorAll(".strategy-tab").forEach(function (t, i) {
-      t.classList.toggle("active", i === idx);
+    tabsEl.querySelectorAll(".strategy-tab").forEach(function (t) {
+      t.classList.toggle("active", parseInt(t.dataset.idx, 10) === idx);
     });
-    panelsEl.querySelectorAll(".strategy-panel").forEach(function (p, i) {
-      p.classList.toggle("active", i === idx);
+    panelsEl.querySelectorAll(".strategy-panel").forEach(function (p) {
+      p.classList.toggle("active", parseInt(p.dataset.strategyIdx, 10) === idx);
     });
     summarySection.hidden = true;
     fixSection.hidden = true;
@@ -197,6 +220,132 @@
     /* Attach state rules after the form is in the DOM. */
     setTimeout(function () { AtdlStateRules.attach(strat, form); }, 0);
     return panel;
+  }
+
+  /* ---------- Source & Validation tab ---------- */
+  function renderSourcePanel(rawXml, validation, filename, tabIdx) {
+    var panel = document.createElement("div");
+    panel.className = "strategy-panel";
+    panel.dataset.strategyIdx = String(tabIdx);
+
+    var card = document.createElement("section");
+    card.className = "strategy-card";
+
+    var h = document.createElement("h2");
+    h.textContent = "Source & Validation";
+    card.appendChild(h);
+
+    var meta = document.createElement("p");
+    meta.className = "meta";
+    meta.textContent = filename + " — " +
+      (validation.wellFormed ? "well-formed XML" : "XML parse error") +
+      " \u2022 FIXatdl 1.1 schemas bundled under /schemas/";
+    card.appendChild(meta);
+
+    /* Summary strip */
+    var sum = document.createElement("div");
+    sum.className = "validation-summary";
+    sum.appendChild(stat("Strategies", validation.summary.strategies));
+    sum.appendChild(stat("Parameters", validation.summary.parameters));
+    sum.appendChild(stat("Controls",   validation.summary.controls));
+    sum.appendChild(stat("Errors",     validation.errors.length,   validation.errors.length ? "err" : "ok"));
+    sum.appendChild(stat("Warnings",   validation.warnings.length, validation.warnings.length ? "warn" : "ok"));
+    card.appendChild(sum);
+
+    /* Issues list */
+    if (validation.errors.length === 0 && validation.warnings.length === 0) {
+      var ok = document.createElement("p");
+      ok.className = "issue issue-ok";
+      ok.style.background = "#f0fdf4";
+      ok.style.borderLeftColor = "#059669";
+      ok.style.color = "#065f46";
+      ok.textContent = "\u2713 No schema, reference, or semantic issues detected.";
+      card.appendChild(ok);
+    } else {
+      var list = document.createElement("ul");
+      list.className = "issue-list";
+      validation.errors.forEach(function (e) { list.appendChild(issueItem(e, "err")); });
+      validation.warnings.forEach(function (w) { list.appendChild(issueItem(w, "warn")); });
+      card.appendChild(list);
+    }
+
+    /* Source actions */
+    var actions = document.createElement("div");
+    actions.className = "source-actions";
+    var copyBtn = document.createElement("button");
+    copyBtn.type = "button"; copyBtn.className = "secondary-btn";
+    copyBtn.textContent = "Copy source";
+    copyBtn.addEventListener("click", function () {
+      if (navigator.clipboard) navigator.clipboard.writeText(rawXml);
+      copyBtn.textContent = "Copied!";
+      setTimeout(function () { copyBtn.textContent = "Copy source"; }, 1800);
+    });
+    var dlBtn = document.createElement("a");
+    dlBtn.className = "ghost-btn";
+    dlBtn.textContent = "Download XML";
+    dlBtn.href = "data:application/xml;charset=utf-8," + encodeURIComponent(rawXml);
+    dlBtn.download = filename || "atdl.xml";
+    dlBtn.style.textDecoration = "none";
+    actions.appendChild(copyBtn);
+    actions.appendChild(dlBtn);
+    card.appendChild(actions);
+
+    /* Highlighted XML source — mark each line that has an issue. Errors
+       win over warnings when both fall on the same line. */
+    var markers = {};
+    validation.warnings.forEach(function (w) { if (w.line) markers[w.line] = "warn"; });
+    validation.errors.forEach(function (e) { if (e.line) markers[e.line] = "err"; });
+
+    var src = document.createElement("div");
+    src.className = "xml-source";
+    src.innerHTML = AtdlHighlight.renderWithLineNumbers(rawXml, markers);
+    card.appendChild(src);
+
+    panel.appendChild(card);
+    return panel;
+  }
+
+  function stat(label, value, tone) {
+    var w = document.createElement("div");
+    w.className = "stat";
+    var l = document.createElement("span"); l.className = "stat-label"; l.textContent = label;
+    var v = document.createElement("span"); v.className = "stat-value" + (tone ? " " + tone : "");
+    v.textContent = String(value);
+    w.appendChild(l); w.appendChild(v);
+    return w;
+  }
+
+  function issueItem(issue, kind) {
+    var li = document.createElement("li");
+    li.className = "issue " + (kind === "err" ? "issue-err" : "issue-warn");
+    var rid = document.createElement("span");
+    rid.className = "rule-id";
+    rid.textContent = issue.ruleId;
+    var msg = document.createElement("span");
+    msg.textContent = " " + issue.message + (issue.line ? " (line " + issue.line + ")" : "");
+    li.appendChild(rid); li.appendChild(msg);
+    if (issue.element) {
+      var hint = document.createElement("span");
+      hint.className = "element-hint";
+      hint.textContent = issue.element;
+      li.appendChild(hint);
+    }
+    if (issue.line) {
+      li.classList.add("issue-clickable");
+      li.dataset.targetLine = String(issue.line);
+      li.title = "Jump to line " + issue.line;
+      li.addEventListener("click", function () {
+        var card = li.closest(".strategy-card");
+        var src = card && card.querySelector(".xml-source");
+        if (!src) return;
+        var row = src.children[issue.line - 1];
+        if (!row) return;
+        row.scrollIntoView({ block: "center", behavior: "smooth" });
+        row.classList.add("xml-line-flash");
+        setTimeout(function () { row.classList.remove("xml-line-flash"); }, 1400);
+      });
+    }
+    return li;
   }
 
   /* ---------- FIX input: UI + parsing + application ---------- */

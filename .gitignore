@@ -22,3 +22,6 @@ stealth_from_dsl.html
 
 # Claude working files
 .claude/
+
+# External reference material (atdl4j Java sources)
+reference/
