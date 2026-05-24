@@ -8,10 +8,10 @@
 (function (global) {
   "use strict";
 
-  var NS_CORE = "http://www.fixprotocol.org/ATDL-1-1/Core";
-  var NS_LAY  = "http://www.fixprotocol.org/ATDL-1-1/Layout";
-  var NS_FLOW = "http://www.fixprotocol.org/ATDL-1-1/Flow";
-  var NS_VAL  = "http://www.fixprotocol.org/ATDL-1-1/Validation";
+  var NS_CORE = "http://www.fixprotocol.org/FIXatdl-1-1/Core";
+  var NS_LAY  = "http://www.fixprotocol.org/FIXatdl-1-1/Layout";
+  var NS_FLOW = "http://www.fixprotocol.org/FIXatdl-1-1/Flow";
+  var NS_VAL  = "http://www.fixprotocol.org/FIXatdl-1-1/Validation";
   var NS_XSI  = "http://www.w3.org/2001/XMLSchema-instance";
 
   /* Allowed Parameter xsi:type local names (from atdl-core-1-1.xsd). */
@@ -449,9 +449,9 @@
             errors.push(makeIssue(3, "SEM-16", "Strategy '" + sname + "': Parameter '" + name + "' fixTag " + ft + " collides with Strategies/@strategyIdentifierTag.", p));
           }
           var n = parseInt(ft, 10);
-          if (!isNaN(n) && (n < 5000 || n > 9999)) {
+          if (!isNaN(n) && (n < 5000 || n > 50000)) {
             warnings.push(makeIssue(3, "SEM-14W",
-              "Parameter '" + name + "' fixTag " + ft + " is outside the user-defined range (5000–9999).",
+              "Parameter '" + name + "' fixTag " + ft + " is outside the user-defined range (5000–50000).",
               p));
           }
         }
@@ -625,8 +625,8 @@
         var nm = p.getAttribute("name");
         if (!nm || boundParams[nm]) return;
         if (p.getAttribute("const") === "true") return;
-        warnings.push(makeIssue(3, "SEM-19W",
-          "Strategy '" + sname + "': Parameter '" + nm + "' is not bound to any Control — user cannot set its value.", p));
+        /*warnings.push(makeIssue(3, "SEM-19W",
+          "Strategy '" + sname + "': Parameter '" + nm + "' is not bound to any Control — user cannot set its value.", p));*/
       });
     });
 

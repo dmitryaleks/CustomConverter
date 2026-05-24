@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+<Strategies xmlns="http://www.fixprotocol.org/FIXatdl-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/FIXatdl-1-1/Core" xmlns:lay="http://www.fixprotocol.org/FIXatdl-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/FIXatdl-1-1/Core schemas/fixatdl-core-1-1.xsd">
   <Strategy name="ARRIVAL_PRICE" uiRep="ARRIVAL_PRICE" wireValue="ARRIVAL_PRICE" fixMsgType="D" providerID="CustomProvider" version="1">
     <Parameter name="ArrivalPxOffset" xsi:type="core:PriceOffset_t" fixTag="5001" mutableOnCxlRpl="true">
       <Description>Offset from arrival price in basis points (positive = above, negative = below)</Description>

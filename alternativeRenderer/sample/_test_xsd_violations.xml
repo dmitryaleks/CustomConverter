@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!-- Deliberately broken fixture — each "violation" comment marks which XSD-* rule should fire. -->
-<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core"
+<Strategies xmlns="http://www.fixprotocol.org/FIXatdl-1-1/Core"
             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-            xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core"
+            xmlns:core="http://www.fixprotocol.org/FIXatdl-1-1/Core"
             strategyIdentifierTag="847">
   <Strategy name="BROKEN" uiRep="Broken" wireValue="BROKEN" fixMsgType="D"
             providerID="CustomProvider" version="1" bogusAttr="x">

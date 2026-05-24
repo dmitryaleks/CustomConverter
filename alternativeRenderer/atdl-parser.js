@@ -2,10 +2,10 @@
 (function (global) {
   "use strict";
 
-  var NS_CORE = "http://www.fixprotocol.org/ATDL-1-1/Core";
-  var NS_LAY  = "http://www.fixprotocol.org/ATDL-1-1/Layout";
-  var NS_VAL  = "http://www.fixprotocol.org/ATDL-1-1/Validation";
-  var NS_FLOW = "http://www.fixprotocol.org/ATDL-1-1/Flow";
+  var NS_CORE = "http://www.fixprotocol.org/FIXatdl-1-1/Core";
+  var NS_LAY  = "http://www.fixprotocol.org/FIXatdl-1-1/Layout";
+  var NS_VAL  = "http://www.fixprotocol.org/FIXatdl-1-1/Validation";
+  var NS_FLOW = "http://www.fixprotocol.org/FIXatdl-1-1/Flow";
   var NS_XSI  = "http://www.w3.org/2001/XMLSchema-instance";
 
   /* Strip namespace prefix from xsi:type values like "core:Int_t" or "lay:DropDownList_t". */

@@ -1,6 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Strategies xmlns="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/ATDL-1-1/Core" xmlns:lay="http://www.fixprotocol.org/ATDL-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/ATDL-1-1/Core schemas/atdl-core-1-1.xsd">
+<Strategies xmlns="http://www.fixprotocol.org/FIXatdl-1-1/Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:core="http://www.fixprotocol.org/FIXatdl-1-1/Core" xmlns:lay="http://www.fixprotocol.org/FIXatdl-1-1/Layout" strategyIdentifierTag="847" xsi:schemaLocation="http://www.fixprotocol.org/FIXatdl-1-1/Core schemas/fixatdl-core-1-1.xsd">
   <Strategy name="VWAP" uiRep="VWAP" wireValue="VWAP" fixMsgType="D" providerID="CustomProvider" version="1">
+    <Parameter name="StrategyService" xsi:type="core:String_t" fixTag="7000" constValue="ABC" const="true"/>
     <Parameter name="StartTime" xsi:type="core:UTCTimeOnly_t" fixTag="5001" mutableOnCxlRpl="true">
       <Description>Strategy start time (UTC)</Description>
     </Parameter>

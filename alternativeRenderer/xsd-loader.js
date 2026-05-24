@@ -230,12 +230,12 @@
 
   function load(baseUrl) {
     var files = [
-      "atdl-core-1-1.xsd",
-      "atdl-layout-1-1.xsd",
-      "atdl-flow-1-1.xsd",
-      "atdl-validation-1-1.xsd",
-      "atdl-regions-1-1.xsd",
-      "atdl-timezones-1-1.xsd"
+      "fixatdl-core-1-1.xsd",
+      "fixatdl-layout-1-1.xsd",
+      "fixatdl-flow-1-1.xsd",
+      "fixatdl-validation-1-1.xsd",
+      "fixatdl-regions-1-1.xsd",
+      "fixatdl-timezones-1-1.xsd"
     ];
     /* If schemas-embedded.js is loaded, use that — lets the page work
        from file:// where cross-origin fetch is blocked. Falls through
