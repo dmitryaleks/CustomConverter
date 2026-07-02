@@ -11,6 +11,8 @@ Four independent CLI tools are provided:
 | `validate_schema.py` | Validate any ATDL XML document (structural + referential + semantic) |
 | `run_evals.py` | Batch-evaluate a directory of JSON and/or XML DSL files end-to-end and report pass/fail, type mapping, and diffs |
 
+In addition, [`alternativeRenderer/`](alternativeRenderer/README.md) is a standalone, dependency-free **browser renderer** for FIXatdl 1.1 documents: drag-and-drop a strategy XML to get an interactive order-entry form with full conditional behavior (`flow:StateRule` / `val:Edit` / `EditRef`), submit-time `val:StrategyEdit` validation, multi-phase document validation, and a raw FIX message preview.
+
 ---
 
 ## Requirements

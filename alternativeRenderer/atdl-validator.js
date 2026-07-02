@@ -307,11 +307,39 @@
     return errors;
   }
 
+  /* Where does an Edit/EditRef live? Inside a flow:StateRule its field refs
+     are Control IDs; inside a val:StrategyEdit they are parameter names (or
+     FIX_-prefixed standard fields); a named Edit declared directly under
+     Strategy/Strategies may be referenced from either context. */
+  function editContextOf(el) {
+    for (var n = el.parentNode; n && n.nodeType === 1; n = n.parentNode) {
+      if (n.namespaceURI === NS_FLOW && n.localName === "StateRule") return "staterule";
+      if (n.namespaceURI === NS_VAL && n.localName === "StrategyEdit") return "strategyedit";
+    }
+    return "named";
+  }
+
+  function hasStrategyAncestor(el) {
+    for (var n = el.parentNode; n && n.nodeType === 1; n = n.parentNode) {
+      if (n.namespaceURI === NS_CORE && n.localName === "Strategy") return true;
+    }
+    return false;
+  }
+
   /* ---------- Phase 2: Referential integrity ---------- */
   function phase2(doc) {
     var errors = [];
     var root = doc.documentElement;
     if (!root || root.localName !== "Strategies" || root.namespaceURI !== NS_CORE) return errors;
+
+    /* Named Edits declared at the Strategies level are visible to every
+       Strategy via EditRef. */
+    var globalEditIds = {};
+    descendantsNS(root, NS_VAL, "Edit").forEach(function (e) {
+      if (hasStrategyAncestor(e)) return;
+      var id = e.getAttribute("id");
+      if (id) globalEditIds[id] = true;
+    });
 
     childrenNS(root, NS_CORE, "Strategy").forEach(function (s) {
       var sname = s.getAttribute("name") || "?";
@@ -381,16 +409,53 @@
         }
       });
 
-      /* REF-05: Edit field references must name a Parameter */
+      /* REF-05: Edit field references must resolve. Context decides the
+         reference space: Control IDs inside StateRules, parameter names
+         (or FIX_-prefixed standard fields) inside StrategyEdits; named
+         Edits may be used from either context so both spaces are accepted. */
+      var controlIds = {};
+      ctrls.forEach(function (c) {
+        var id = c.getAttribute("ID");
+        if (id) controlIds[id] = true;
+      });
       descendantsNS(s, NS_VAL, "Edit").forEach(function (edit) {
+        var ctxKind = editContextOf(edit);
         ["field", "field2"].forEach(function (a) {
           var v = edit.getAttribute(a);
-          if (v && !paramNames[v]) {
+          if (!v) return;
+          if (/^FIX_/.test(v)) return; /* standard FIX field reference */
+          if (ctxKind === "staterule" && !controlIds[v]) {
             errors.push(makeIssue(2, "REF-05",
-              "Strategy '" + sname + "': Edit references unknown parameter '" + v + "' via @" + a + ".",
+              "Strategy '" + sname + "': StateRule Edit references unknown Control '" + v + "' via @" + a + ".",
+              edit));
+          } else if (ctxKind === "strategyedit" && !paramNames[v]) {
+            errors.push(makeIssue(2, "REF-05",
+              "Strategy '" + sname + "': StrategyEdit Edit references unknown parameter '" + v + "' via @" + a + ".",
+              edit));
+          } else if (ctxKind === "named" && !paramNames[v] && !controlIds[v]) {
+            errors.push(makeIssue(2, "REF-05",
+              "Strategy '" + sname + "': Edit references unknown parameter/Control '" + v + "' via @" + a + ".",
               edit));
           }
         });
+      });
+
+      /* REF-08: every EditRef must point at a named Edit defined in this
+         Strategy or at the Strategies level. */
+      var localEditIds = {};
+      descendantsNS(s, NS_VAL, "Edit").forEach(function (e) {
+        var id = e.getAttribute("id");
+        if (id) localEditIds[id] = true;
+      });
+      descendantsNS(s, NS_VAL, "EditRef").forEach(function (ref) {
+        var rid = ref.getAttribute("id");
+        if (!rid) {
+          errors.push(makeIssue(2, "REF-08",
+            "Strategy '" + sname + "': EditRef is missing its required @id.", ref));
+        } else if (!localEditIds[rid] && !globalEditIds[rid]) {
+          errors.push(makeIssue(2, "REF-08",
+            "Strategy '" + sname + "': EditRef id='" + rid + "' does not match any named Edit.", ref));
+        }
       });
     });
 

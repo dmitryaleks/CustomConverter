@@ -216,6 +216,12 @@
       form.appendChild(renderPanel(sp, strat));
     });
 
+    /* StrategyEdit failures are surfaced here at submit time. */
+    var seErrors = document.createElement("div");
+    seErrors.className = "strategy-edit-errors";
+    seErrors.setAttribute("aria-live", "polite");
+    form.appendChild(seErrors);
+
     var actions = document.createElement("div");
     actions.className = "actions";
     var submit = document.createElement("button");
@@ -664,9 +670,21 @@
   /* Render a StrategyPanel — fieldset with optional title and orientation. */
   function renderPanel(sp, strat) {
     var fs = document.createElement("fieldset");
-    fs.className = "atdl-panel" + (sp.title || sp.border === "Line" ? "" : " no-border");
+    /* Border tri-state: "Line" always shows, "None" always hides (even with
+       a title), unset shows the border only when the panel is titled. */
+    var noBorder;
+    if (sp.border === "Line") noBorder = false;
+    else if (sp.border === "None") noBorder = true;
+    else noBorder = !sp.title;
+    fs.className = "atdl-panel" + (noBorder ? " no-border" : "");
     if (sp.collapsible) fs.classList.add("collapsible");
     if (sp.collapsible && sp.collapsed) fs.classList.add("collapsed");
+    if (sp.color) {
+      /* Spec format: "R,G,B" — pass anything else through untouched and
+         let the browser decide whether it is a valid color. */
+      var rgb = /^\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*$/.exec(sp.color);
+      fs.style.backgroundColor = rgb ? "rgb(" + rgb[1] + ", " + rgb[2] + ", " + rgb[3] + ")" : sp.color;
+    }
 
     if (sp.title) {
       var lg = document.createElement("legend");
@@ -701,13 +719,22 @@
       var wrap = document.createElement("span");
       wrap.style.display = "none";
       wrap.dataset.fieldName = pname;
+      wrap.dataset.ctrlId = ctrl.id;
       wrap.appendChild(AtdlWidgets.build(ctrl, param));
       return wrap;
+    }
+
+    if (ctrl.initPolicy === "UseFixField") {
+      console.info("FIXatdl: Control '" + ctrl.id + "' requests initPolicy=\"UseFixField\" (" +
+                   (ctrl.initFixField || "?") + ") — standard FIX field seeding is not supported; " +
+                   "falling back to initValue.");
     }
 
     var group = document.createElement("div");
     group.className = "field-group";
     group.dataset.fieldName = pname;
+    group.dataset.ctrlId = ctrl.id;
+    if (ctrl.tooltip) group.title = ctrl.tooltip;
 
     var lbl = document.createElement("label");
     lbl.htmlFor = ctrl.id;
@@ -732,6 +759,19 @@
       group.appendChild(d);
     }
 
+    /* HelpText element (whitespace preserved) as an expandable note. */
+    if (ctrl.helpText && ctrl.helpText.trim()) {
+      var help = document.createElement("details");
+      help.className = "help-text";
+      var hs = document.createElement("summary");
+      hs.textContent = "Help";
+      var hb = document.createElement("div");
+      hb.textContent = ctrl.helpText;
+      help.appendChild(hs);
+      help.appendChild(hb);
+      group.appendChild(help);
+    }
+
     var err = document.createElement("span");
     err.className = "field-error";
     err.id = ctrl.id + "-error";
@@ -751,19 +791,43 @@
     return out;
   }
 
+  /* Controls disabled (but still visible) by a StateRule also have their
+     parameters excluded from the wire, matching atdl4j. The spec is explicit
+     only about hidden/uninitialized controls — flip this to keep emitting
+     disabled controls' values instead. */
+  var EXCLUDE_DISABLED_FROM_WIRE = true;
+
+  function editReferencesFixFields(edit) {
+    if (!edit) return false;
+    if (/^FIX_/.test(edit.field || "") || /^FIX_/.test(edit.field2 || "")) return true;
+    return (edit.edits || []).some(editReferencesFixFields);
+  }
+
   function handleSubmit(strat, form) {
     var ctrls = collectControls(strat.panels);
     var ok = true;
     var rows = [];
     var fixPairs = [];
     var emitted = {};
+    var valueByParam = {}; /* wire-space values for StrategyEdit evaluation */
 
     ctrls.forEach(function (ctrl) {
       var param = strat.parameterMap[ctrl.parameterRef];
       if (!param || ctrl.type === "Label_t") return;
-      var raw = AtdlWidgets.readValue(ctrl, param, form);
       var err = form.querySelector("#" + AtdlWidgets.cssEscape(ctrl.id) + "-error");
       if (err) err.textContent = "";
+
+      /* Controls hidden (or disabled) by a StateRule are excluded entirely:
+         no required/range checks, no summary row, no FIX tag. */
+      var group = form.querySelector('[data-ctrl-id="' + AtdlWidgets.cssEscape(ctrl.id) + '"]');
+      if (group && (group.classList.contains("hidden") ||
+                    (EXCLUDE_DISABLED_FROM_WIRE && group.classList.contains("disabled")))) {
+        clearInvalid(form, ctrl);
+        emitted[param.name] = true; /* handled — exclusion is intentional */
+        return;
+      }
+
+      var raw = AtdlWidgets.readValue(ctrl, param, form);
 
       /* Required check */
       if (param.use === "required" && (raw == null || raw === "")) {
@@ -788,6 +852,7 @@
       if (param.fixTag && raw != null && raw !== "") {
         fixPairs.push({ tag: param.fixTag, value: raw });
       }
+      if (raw != null && raw !== "") valueByParam[param.name] = raw;
       emitted[param.name] = true;
     });
 
@@ -799,6 +864,29 @@
       if (!param.fixTag) return;
       rows.push({ name: param.name, tag: param.fixTag, value: param.constValue });
       fixPairs.push({ tag: param.fixTag, value: param.constValue });
+      valueByParam[param.name] = param.constValue;
+    });
+
+    /* Strategy-wide validation rules (val:StrategyEdit). Per the spec these
+       evaluate in parameter wire-value space, unlike StateRules. */
+    var seBox = form.querySelector(".strategy-edit-errors");
+    if (seBox) seBox.innerHTML = "";
+    (strat.strategyEdits || []).forEach(function (se) {
+      if (!se.edit) return;
+      if (editReferencesFixFields(se.edit)) {
+        console.info("FIXatdl: StrategyEdit references a FIX_-prefixed standard field — " +
+                     "not evaluated (standard FIX field values are unavailable here).");
+        return;
+      }
+      if (!AtdlStateRules.evalEdit(se.edit, valueByParam)) {
+        ok = false;
+        if (seBox) {
+          var msg = document.createElement("p");
+          msg.className = "strategy-edit-error";
+          msg.textContent = se.errorMessage;
+          seBox.appendChild(msg);
+        }
+      }
     });
 
     if (!ok) {

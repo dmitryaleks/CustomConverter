@@ -46,6 +46,11 @@
     return el ? (el.textContent || "").trim() : "";
   }
 
+  /* HelpText_t preserves whitespace (xs:whiteSpace value="preserve"). */
+  function textOfPreserve(el) {
+    return el ? (el.textContent || "") : null;
+  }
+
   /* ---------- ParameterT ---------- */
   function parseParameter(el) {
     var xsiType = el.getAttributeNS(NS_XSI, "type");
@@ -78,8 +83,8 @@
     return p;
   }
 
-  /* ---------- StateRule (Flow) ---------- */
-  function parseEdit(el) {
+  /* ---------- Edit / EditRef (Validation) ---------- */
+  function parseEdit(el, ctx) {
     if (!el) return null;
     var edit = {
       field: attr(el, "field"),
@@ -87,38 +92,78 @@
       value: attr(el, "value"),
       operator: attr(el, "operator"),
       logicOperator: attr(el, "logicOperator"),
-      editRef: attr(el, "id") ? null : attr(el, "editRef"),
       edits: []
     };
+    /* Children may mix nested <Edit> and <EditRef> in document order. */
     var ns = el.namespaceURI;
-    childrenNS(el, ns, "Edit").forEach(function (sub) {
-      edit.edits.push(parseEdit(sub));
-    });
+    for (var i = 0; i < el.childNodes.length; i++) {
+      var c = el.childNodes[i];
+      if (c.nodeType !== 1 || c.namespaceURI !== ns) continue;
+      if (c.localName === "Edit") {
+        edit.edits.push(parseEdit(c, ctx));
+      } else if (c.localName === "EditRef") {
+        var resolved = resolveEditRef(c, ctx);
+        if (resolved) edit.edits.push(resolved);
+      }
+    }
+    var id = attr(el, "id");
+    if (id) AtdlEditResolver.define(ctx, id, edit);
     return edit;
   }
 
-  function parseStateRule(el) {
-    var rule = {
+  function resolveEditRef(el, ctx) {
+    var refId = attr(el, "id");
+    var named = AtdlEditResolver.resolve(ctx, refId);
+    if (!named) {
+      console.warn("FIXatdl: EditRef id='" + refId + "' does not match any previously defined Edit — reference ignored.");
+      return null;
+    }
+    return AtdlEditResolver.cloneEdit(named);
+  }
+
+  /* StateRule and StrategyEdit both wrap exactly one Edit or EditRef. */
+  function parseConditionChild(el, ctx) {
+    var editEl = firstChildNS(el, NS_VAL, "Edit");
+    if (editEl) return parseEdit(editEl, ctx);
+    var refEl = firstChildNS(el, NS_VAL, "EditRef");
+    if (refEl) return resolveEditRef(refEl, ctx);
+    return null;
+  }
+
+  /* ---------- StateRule (Flow) ---------- */
+  function parseStateRule(el, ctx) {
+    return {
       enabled: el.hasAttribute("enabled") ? attrBool(el, "enabled", true) : null,
       visible: el.hasAttribute("visible") ? attrBool(el, "visible", true) : null,
       value:   el.hasAttribute("value") ? attr(el, "value") : null,
-      edit: null
+      edit: parseConditionChild(el, ctx)
     };
-    var editEl = firstChildNS(el, NS_VAL, "Edit");
-    if (editEl) rule.edit = parseEdit(editEl);
-    return rule;
+  }
+
+  /* ---------- StrategyEdit (Validation) ---------- */
+  function parseStrategyEdit(el, ctx) {
+    return {
+      errorMessage: attr(el, "errorMessage") || "Strategy validation rule failed.",
+      description: textOf(firstChildNS(el, NS_CORE, "Description")),
+      edit: parseConditionChild(el, ctx)
+    };
   }
 
   /* ---------- ListItem ---------- */
-  function parseListItem(el) {
-    return {
+  function parseListItem(el, ctx) {
+    var li = {
       enumID: attr(el, "enumID"),
-      uiRep: attr(el, "uiRep") || attr(el, "enumID")
+      uiRep: attr(el, "uiRep") || attr(el, "enumID"),
+      stateRules: []
     };
+    childrenNS(el, NS_FLOW, "StateRule").forEach(function (sr) {
+      li.stateRules.push(parseStateRule(sr, ctx));
+    });
+    return li;
   }
 
   /* ---------- Control ---------- */
-  function parseControl(el) {
+  function parseControl(el, ctx) {
     var xsiType = el.getAttributeNS(NS_XSI, "type");
     var ctrl = {
       id: attr(el, "ID"),
@@ -126,10 +171,17 @@
       parameterRef: attr(el, "parameterRef"),
       label: attr(el, "label"),
       tooltip: attr(el, "tooltip"),
+      helpText: textOfPreserve(firstChildNS(el, NS_LAY, "HelpText")),
       initValue: attr(el, "initValue"),
+      initValueMode: attr(el, "initValueMode"),
       initFixField: attr(el, "initFixField"),
+      initPolicy: attr(el, "initPolicy"),
       increment: attr(el, "increment"),
       incrementPolicy: attr(el, "incrementPolicy"),
+      innerIncrement: attr(el, "innerIncrement"),
+      innerIncrementPolicy: attr(el, "innerIncrementPolicy"),
+      outerIncrement: attr(el, "outerIncrement"),
+      outerIncrementPolicy: attr(el, "outerIncrementPolicy"),
       minValue: attr(el, "minValue"),
       maxValue: attr(el, "maxValue"),
       checkedEnumRef: attr(el, "checkedEnumRef"),
@@ -140,36 +192,38 @@
       stateRules: []
     };
     childrenNS(el, NS_LAY, "ListItem").forEach(function (li) {
-      ctrl.listItems.push(parseListItem(li));
+      ctrl.listItems.push(parseListItem(li, ctx));
     });
     childrenNS(el, NS_FLOW, "StateRule").forEach(function (sr) {
-      ctrl.stateRules.push(parseStateRule(sr));
+      ctrl.stateRules.push(parseStateRule(sr, ctx));
     });
     return ctrl;
   }
 
   /* ---------- StrategyPanel (recursive) ---------- */
-  function parseStrategyPanel(el) {
+  function parseStrategyPanel(el, ctx) {
     var panel = {
       title: attr(el, "title"),
       orientation: (attr(el, "orientation") || "VERTICAL").toUpperCase(),
       collapsible: attrBool(el, "collapsible", false),
       collapsed: attrBool(el, "collapsed", false),
       border: attr(el, "border"),
+      color: attr(el, "color"),
       controls: [],
       panels: []
     };
     childrenNS(el, NS_LAY, "Control").forEach(function (c) {
-      panel.controls.push(parseControl(c));
+      panel.controls.push(parseControl(c, ctx));
     });
     childrenNS(el, NS_LAY, "StrategyPanel").forEach(function (sp) {
-      panel.panels.push(parseStrategyPanel(sp));
+      panel.panels.push(parseStrategyPanel(sp, ctx));
     });
     return panel;
   }
 
   /* ---------- Strategy ---------- */
-  function parseStrategy(el, strategiesAttrs) {
+  function parseStrategy(el, strategiesAttrs, parentCtx) {
+    var ctx = AtdlEditResolver.createContext(parentCtx);
     var strat = {
       name: attr(el, "name"),
       uiRep: attr(el, "uiRep") || attr(el, "name"),
@@ -179,22 +233,31 @@
       fixMsgType: attr(el, "fixMsgType") || "D",
       strategyIdentifierTag: strategiesAttrs.strategyIdentifierTag || "847",
       parameters: [],
-      panels: []
+      panels: [],
+      strategyEdits: []
     };
     childrenNS(el, NS_CORE, "Parameter").forEach(function (p) {
       strat.parameters.push(parseParameter(p));
     });
+    /* Strategy-level named Edits come before the layout in the XSD content
+       model, so a single pass registers them before any EditRef use. */
+    childrenNS(el, NS_VAL, "Edit").forEach(function (e) {
+      parseEdit(e, ctx);
+    });
     var layout = firstChildNS(el, NS_LAY, "StrategyLayout");
     if (layout) {
       childrenNS(layout, NS_LAY, "StrategyPanel").forEach(function (sp) {
-        strat.panels.push(parseStrategyPanel(sp));
+        strat.panels.push(parseStrategyPanel(sp, ctx));
       });
     }
+    childrenNS(el, NS_VAL, "StrategyEdit").forEach(function (se) {
+      strat.strategyEdits.push(parseStrategyEdit(se, ctx));
+    });
     /* Synthesize a flat panel if no layout — render parameters in declaration order. */
     if (strat.panels.length === 0 && strat.parameters.length > 0) {
       strat.panels.push({
         title: null, orientation: "VERTICAL", collapsible: false, collapsed: false,
-        border: null, panels: [],
+        border: null, color: null, panels: [],
         controls: strat.parameters.map(function (p) {
           return inferControlFromParameter(p);
         })
@@ -212,8 +275,11 @@
       id: p.name + "_ctrl",
       parameterRef: p.name,
       label: p.name,
-      tooltip: null, initValue: null, initFixField: null,
+      tooltip: null, helpText: null,
+      initValue: null, initValueMode: null, initFixField: null, initPolicy: null,
       increment: null, incrementPolicy: null,
+      innerIncrement: null, innerIncrementPolicy: null,
+      outerIncrement: null, outerIncrementPolicy: null,
       minValue: null, maxValue: null,
       checkedEnumRef: null, uncheckedEnumRef: null,
       radioGroup: null, orientation: null,
@@ -264,9 +330,14 @@
       strategyIdentifierTag: attr(root, "strategyIdentifierTag"),
       providerID: attr(root, "providerID")
     };
+    /* Strategies-level named Edits are shared by every Strategy. */
+    var rootCtx = AtdlEditResolver.createContext(null);
+    childrenNS(root, NS_VAL, "Edit").forEach(function (e) {
+      parseEdit(e, rootCtx);
+    });
     var strategies = [];
     childrenNS(root, NS_CORE, "Strategy").forEach(function (s) {
-      strategies.push(parseStrategy(s, stratsAttrs));
+      strategies.push(parseStrategy(s, stratsAttrs, rootCtx));
     });
     return {
       strategyIdentifierTag: stratsAttrs.strategyIdentifierTag || "847",

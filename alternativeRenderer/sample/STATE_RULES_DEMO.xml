@@ -1,0 +1,171 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--
+  STATE_RULES_DEMO — exercises the FIXatdl 1.1 conditional (flow/validation)
+  features end-to-end. Each StateRule carries a Description stating the
+  expected behavior, so this file doubles as a manual QA script:
+
+   1. "Enable pegging" checkbox drives enablement of Peg type and
+      visibility of Peg offset (named Edit reused via EditRef).
+   2. Unchecking "Enable pegging" clears Peg offset via value="{NULL}"
+      (its FIX tag 8002 must then be absent from the message).
+   3. Peg type list: the "Last price" entry is hidden while
+      Order style = Aggressive (per-ListItem StateRule); if it was
+      selected, the selection is cleared.
+   4. Client ref is required but only visible when Order style = Custom;
+      while hidden it must neither block submission nor emit tag 8004.
+   5. Urgency slider (discrete ListItems) set to High forces
+      Max % volume to 25, which in turn reveals Risk acknowledgement -
+      a two-hop cascade requiring fixpoint iteration.
+   6. Sweep checkbox uses checkedEnumRef/uncheckedEnumRef: the wire value
+      must be 1/0 (EnumPair wireValues), not the enumIDs ON/OFF.
+   7. Buy bias / Sell bias are RadioButton_t sharing radioGroup="biasGroup":
+      checking one must uncheck the other (they are different parameters).
+   8. Max % volume is a DoubleSpinner_t: arrows step by innerIncrement 0.5,
+      the +5/-5 buttons step by outerIncrement 5.
+   9. Start time Clock has initValueMode="1": when 09:30:00 has already
+      past, the current time is used instead.
+  10. StrategyEdit: submitting with pegging enabled but no Peg offset must
+      block the FIX preview and show the errorMessage.
+-->
+<Strategies xmlns="http://www.fixprotocol.org/FIXatdl-1-1/Core"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:core="http://www.fixprotocol.org/FIXatdl-1-1/Core"
+            xmlns:lay="http://www.fixprotocol.org/FIXatdl-1-1/Layout"
+            xmlns:val="http://www.fixprotocol.org/FIXatdl-1-1/Validation"
+            xmlns:flow="http://www.fixprotocol.org/FIXatdl-1-1/Flow"
+            strategyIdentifierTag="847"
+            xsi:schemaLocation="http://www.fixprotocol.org/FIXatdl-1-1/Core schemas/fixatdl-core-1-1.xsd">
+  <!-- Strategies-level named Edit, reusable from every strategy. -->
+  <val:Edit id="PeggingEnabled" field="c_EnablePegging" operator="EQ" value="true"/>
+  <Strategy name="PegDemo" uiRep="Pegging Demo (StateRules)" wireValue="PEGDEMO" fixMsgType="D" providerID="CustomProvider" version="1">
+    <Parameter name="StrategyService" xsi:type="core:String_t" fixTag="7000" constValue="PEG"/>
+    <Parameter name="EnablePegging" xsi:type="core:Boolean_t" fixTag="8000">
+      <Description>Peg the order to a reference price</Description>
+    </Parameter>
+    <Parameter name="PegType" xsi:type="core:String_t" fixTag="8001">
+      <Description>Reference price to peg to</Description>
+      <EnumPair enumID="PRIMARY" wireValue="P"/>
+      <EnumPair enumID="MID" wireValue="M"/>
+      <EnumPair enumID="LAST" wireValue="L"/>
+    </Parameter>
+    <Parameter name="PegOffset" xsi:type="core:Float_t" fixTag="8002" minValue="-5" maxValue="5" precision="2">
+      <Description>Offset from the peg reference price</Description>
+    </Parameter>
+    <Parameter name="OrderStyle" xsi:type="core:String_t" fixTag="8003">
+      <Description>Overall execution style</Description>
+      <EnumPair enumID="AGG" wireValue="A"/>
+      <EnumPair enumID="PASS" wireValue="V"/>
+      <EnumPair enumID="CUSTOM" wireValue="C"/>
+    </Parameter>
+    <Parameter name="ClientRef" xsi:type="core:String_t" fixTag="8004" use="required" maxLength="16">
+      <Description>Client reference for custom handling</Description>
+    </Parameter>
+    <Parameter name="Urgency" xsi:type="core:String_t" fixTag="8005">
+      <Description>Execution urgency</Description>
+      <EnumPair enumID="LOW" wireValue="0"/>
+      <EnumPair enumID="MEDIUM" wireValue="1"/>
+      <EnumPair enumID="HIGH" wireValue="2"/>
+    </Parameter>
+    <Parameter name="MaxPctVolume" xsi:type="core:Percentage_t" fixTag="8006" minValue="1" maxValue="50">
+      <Description>Maximum participation as percentage of market volume</Description>
+    </Parameter>
+    <Parameter name="RiskAck" xsi:type="core:String_t" fixTag="8007">
+      <Description>Acknowledgement note for high-participation orders</Description>
+    </Parameter>
+    <Parameter name="Sweep" xsi:type="core:String_t" fixTag="8008">
+      <Description>Sweep additional venues</Description>
+      <EnumPair enumID="ON" wireValue="1"/>
+      <EnumPair enumID="OFF" wireValue="0"/>
+    </Parameter>
+    <Parameter name="BiasBuy" xsi:type="core:Boolean_t" fixTag="8009">
+      <Description>Bias executions toward the buy side</Description>
+    </Parameter>
+    <Parameter name="BiasSell" xsi:type="core:Boolean_t" fixTag="8010">
+      <Description>Bias executions toward the sell side</Description>
+    </Parameter>
+    <Parameter name="StartTime" xsi:type="core:UTCTimeOnly_t" fixTag="8011">
+      <Description>Strategy start time</Description>
+    </Parameter>
+    <!-- Strategy-level named Edit (inherits/shadows the Strategies-level scope). -->
+    <val:Edit id="StyleIsCustom" field="c_OrderStyle" operator="EQ" value="CUSTOM"/>
+    <lay:StrategyLayout>
+      <lay:StrategyPanel title="Pegging" border="Line" orientation="VERTICAL">
+        <lay:Control ID="c_EnablePegging" xsi:type="lay:CheckBox_t" parameterRef="EnablePegging" label="Enable pegging" initValue="false"/>
+        <lay:Control ID="c_PegType" xsi:type="lay:DropDownList_t" parameterRef="PegType" label="Peg type" tooltip="Reference price for the peg">
+          <flow:StateRule enabled="true">
+            <Description>Enabled only while pegging is on (named Edit via EditRef).</Description>
+            <val:EditRef id="PeggingEnabled"/>
+          </flow:StateRule>
+          <lay:ListItem enumID="PRIMARY" uiRep="Primary quote"/>
+          <lay:ListItem enumID="MID" uiRep="Midpoint"/>
+          <lay:ListItem enumID="LAST" uiRep="Last price">
+            <flow:StateRule visible="true">
+              <Description>Hidden while Order style is Aggressive; a live selection is cleared.</Description>
+              <val:Edit field="c_OrderStyle" operator="NE" value="AGG"/>
+            </flow:StateRule>
+          </lay:ListItem>
+        </lay:Control>
+        <lay:Control ID="c_PegOffset" xsi:type="lay:SingleSpinner_t" parameterRef="PegOffset" label="Peg offset" increment="0.05">
+          <flow:StateRule visible="true">
+            <Description>Visible while pegging is on and Peg type is not Last price (nested Edit mixing EditRef and Edit).</Description>
+            <val:Edit logicOperator="AND">
+              <val:Edit field="c_PegType" operator="NE" value="LAST"/>
+              <val:EditRef id="PeggingEnabled"/>
+            </val:Edit>
+          </flow:StateRule>
+          <flow:StateRule value="{NULL}">
+            <Description>Cleared to uninitialized whenever pegging is off — tag 8002 must vanish from the FIX message.</Description>
+            <val:Edit field="c_EnablePegging" operator="EQ" value="false"/>
+          </flow:StateRule>
+        </lay:Control>
+      </lay:StrategyPanel>
+      <lay:StrategyPanel title="Execution style" color="235,242,255" orientation="HORIZONTAL">
+        <lay:Control ID="c_OrderStyle" xsi:type="lay:RadioButtonList_t" parameterRef="OrderStyle" label="Order style" orientation="VERTICAL">
+          <lay:ListItem enumID="AGG" uiRep="Aggressive"/>
+          <lay:ListItem enumID="PASS" uiRep="Passive"/>
+          <lay:ListItem enumID="CUSTOM" uiRep="Custom"/>
+        </lay:Control>
+        <lay:Control ID="c_ClientRef" xsi:type="lay:TextField_t" parameterRef="ClientRef" label="Client ref">
+          <flow:StateRule visible="true">
+            <Description>Required parameter, but only visible for Custom style — hidden it must neither block submit nor emit tag 8004.</Description>
+            <val:EditRef id="StyleIsCustom"/>
+          </flow:StateRule>
+          <lay:HelpText>Free-format reference passed through to the desk.
+Only relevant for Custom handling.</lay:HelpText>
+        </lay:Control>
+        <lay:Control ID="c_Sweep" xsi:type="lay:CheckBox_t" parameterRef="Sweep" label="Sweep venues" checkedEnumRef="ON" uncheckedEnumRef="OFF" initValue="false"/>
+      </lay:StrategyPanel>
+      <lay:StrategyPanel title="Urgency &amp; volume" border="None">
+        <lay:Control ID="c_Urgency" xsi:type="lay:Slider_t" parameterRef="Urgency" label="Urgency" initValue="MEDIUM">
+          <lay:ListItem enumID="LOW" uiRep="Low"/>
+          <lay:ListItem enumID="MEDIUM" uiRep="Medium"/>
+          <lay:ListItem enumID="HIGH" uiRep="High"/>
+        </lay:Control>
+        <lay:Control ID="c_MaxPctVolume" xsi:type="lay:DoubleSpinner_t" parameterRef="MaxPctVolume" label="Max % volume" initValue="10" innerIncrement="0.5" outerIncrement="5">
+          <flow:StateRule value="25">
+            <Description>Forced to 25 while Urgency is High (first hop of the cascade).</Description>
+            <val:Edit field="c_Urgency" operator="EQ" value="HIGH"/>
+          </flow:StateRule>
+        </lay:Control>
+        <lay:Control ID="c_RiskAck" xsi:type="lay:TextField_t" parameterRef="RiskAck" label="Risk acknowledgement">
+          <flow:StateRule visible="true">
+            <Description>Visible once Max % volume reaches 25 (second hop of the cascade).</Description>
+            <val:Edit field="c_MaxPctVolume" operator="GE" value="25"/>
+          </flow:StateRule>
+        </lay:Control>
+      </lay:StrategyPanel>
+      <lay:StrategyPanel title="Advanced" collapsible="true" collapsed="true">
+        <lay:Control ID="c_StartTime" xsi:type="lay:Clock_t" parameterRef="StartTime" label="Start time" initValue="09:30:00" initValueMode="1" localMktTz="America/New_York"/>
+        <lay:Control ID="c_BiasBuy" xsi:type="lay:RadioButton_t" parameterRef="BiasBuy" label="Buy bias" radioGroup="biasGroup"/>
+        <lay:Control ID="c_BiasSell" xsi:type="lay:RadioButton_t" parameterRef="BiasSell" label="Sell bias" radioGroup="biasGroup"/>
+      </lay:StrategyPanel>
+    </lay:StrategyLayout>
+    <val:StrategyEdit errorMessage="Peg offset must be supplied when pegging is enabled.">
+      <Description>Wire-space rule: passes when pegging is off (8000 != Y) or an offset exists.</Description>
+      <val:Edit logicOperator="OR">
+        <val:Edit field="EnablePegging" operator="NE" value="Y"/>
+        <val:Edit field="PegOffset" operator="EX"/>
+      </val:Edit>
+    </val:StrategyEdit>
+  </Strategy>
+</Strategies>
